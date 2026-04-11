@@ -96,6 +96,36 @@ python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank
 python scripts/query_demo.py --query "什么是 FAISS？" --no-retrieval
 ```
 
+## 用户指南（CPU / GPU）
+
+1. 启动 Web 界面
+
+```bash
+streamlit run web/streamlit_app.py
+```
+
+2. 仅 CPU 用户（推荐先用这个验证流程）
+
+```bash
+python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cpu --show-chunks
+```
+
+3. 有 NVIDIA GPU 用户
+
+```bash
+python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cuda --show-chunks
+```
+
+4. 如果 GPU 内核不兼容报错（如 `fmha_cutlass`），先改回 CPU
+
+```bash
+python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cpu
+```
+
+## 界面示例
+
+![Streamlit Example](./image.png)
+
 ## 示例输出
 
 ```text
