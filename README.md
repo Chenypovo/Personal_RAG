@@ -86,13 +86,13 @@ python scripts/query_demo.py --query "什么是 FAISS？" --no-retrieval
 ## 示例输出
 
 ```text
-(dl) D:\personal_rag>python scripts/query_demo.py --query "文档没写的内容是什么？"
+>python scripts/query_demo.py --query "文档没写的内容是什么？"
 === Answer ===
 根据现有资料无法确定具体遗漏的内容。提供的上下文主要涵盖 Faiss 的定义、功能、代码示例和发展历程，但未提及具体应用场景、技术局限性或最新更新细节。
 ```
 
 ```text
-D:\personal_rag>python scripts/query_demo.py --query "什么是faiss"
+>python scripts/query_demo.py --query "什么是faiss"
 === Answer ===
 Faiss 是一个专门用于快速处理大规模向量数据的相似度搜索的算法库，主要解决传统暴力搜索在处理大数据时的性能问题。它可以高效地在向量空间中找到相似向量，常用于推荐系统、图像匹配等场景。根据资料，Faiss 是向量数据库的核心引擎，尤其在大模型时代和检索增强生成（RAG）技术中发挥重要作用。[1][2][3]
 ```
