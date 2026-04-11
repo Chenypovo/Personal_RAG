@@ -13,18 +13,19 @@
 ## 项目结构
 
 ```text
-app/
-  loader/
-  chunker/
-  embedder/
-  vectordb/
-  retriever/
-  generator/
-scripts/
-  build_index.py
-  query_demo.py
-data/
-  uploads/
+Personal_RAG/
+├── app/
+│   ├── loader/
+│   ├── chunker/
+│   ├── embedder/
+│   ├── vectordb/
+│   ├── retriever/
+│   └── generator/
+├── scripts/
+│   ├── build_index.py
+│   └── query_demo.py
+└── data/
+    └── uploads/
 ```
 
 ## 快速开始
@@ -86,3 +87,7 @@ python scripts/query_demo.py --query "什么是 FAISS？" --no-retrieval
 
 - `could not open data/index/faiss.index`：先运行建索引命令。
 - `No supported files found`：检查输入目录里是否有 `txt/md/pdf`。
+
+## 联系方式
+
+- 邮箱：`yipeng003@e.ntu.edu.sg`
