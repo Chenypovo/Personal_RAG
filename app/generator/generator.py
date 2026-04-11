@@ -23,9 +23,12 @@ class OpenAICompatibleGenerator:
     def _build_context(self, retrieved_chunks: List[Dict[str, Any]]) -> str:
         lines: List[str] = []
         for item in retrieved_chunks:
-            meta = item.get("metadata", {})
+            meta_raw = item.get("metadata")
+            meta = meta_raw if isinstance(meta_raw, dict) else {}
             label = self._citation_label(meta)
-            text = (meta.get("text", "") or "").strip()
+            text_raw = meta.get("text", "")
+            text = text_raw if isinstance(text_raw, str) else ("" if text_raw is None else str(text_raw))
+            text = text.strip()
             lines.append(f"[{label}]\n{text}")
         return "\n\n".join(lines).strip()
 
@@ -56,7 +59,8 @@ class OpenAICompatibleGenerator:
         answer = resp.choices[0].message.content if resp.choices else ""
         sources: List[Dict[str, Any]] = []
         for item in retrieved_chunks:
-            meta = item.get("metadata", {})
+            meta_raw = item.get("metadata")
+            meta = meta_raw if isinstance(meta_raw, dict) else {}
             sources.append(
                 {
                     "citation": self._citation_label(meta),

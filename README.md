@@ -81,7 +81,13 @@ python scripts/query_demo.py --query "FAISS 的作用是什么？" --show-chunks
 - 启用 Cross-Encoder 重排（先召回再 rerank）
 
 ```bash
-python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --show-chunks
+python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cpu --show-chunks
+```
+
+- 启用 Cross-Encoder 重排（GPU）
+
+```bash
+python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cuda --show-chunks
 ```
 
 - 关闭检索（只测生成接口）

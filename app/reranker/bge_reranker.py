@@ -1,4 +1,5 @@
-from typing import Any, List, Dict, Optional
+from contextlib import nullcontext
+from typing import Any, Dict, List, Optional
 
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -23,6 +24,20 @@ class BGEReranker:
         self.model.to(self.device)
         self.model.eval()
 
+    def _sdp_context(self):
+        # Some Windows + new GPU combinations can crash on fused FMHA kernels.
+        # Force math SDP on CUDA to avoid incompatible kernels.
+        if self.device.type != "cuda":
+            return nullcontext()
+        try:
+            return torch.backends.cuda.sdp_kernel(
+                enable_flash=False,
+                enable_mem_efficient=False,
+                enable_math=True,
+            )
+        except Exception:
+            return nullcontext()
+
     def _score_pairs(self, pairs: List[tuple[str, str]]) -> List[float]:
         scores: List[float] = []
 
@@ -41,7 +56,19 @@ class BGEReranker:
                     return_tensors = 'pt',
                 )
                 inputs = {k: v.to(self.device) for k ,v in inputs.items()}
-                logits = self.model(**inputs).logits.view(-1).float()
+                try:
+                    with self._sdp_context():
+                        logits = self.model(**inputs).logits.view(-1).float()
+                except RuntimeError as e:
+                    msg = str(e)
+                    if self.device.type == "cuda" and ("fmha_cutlass" in msg or "sm80-sm100" in msg):
+                        print("[reranker] CUDA FMHA kernel mismatch detected, fallback to CPU for rerank.")
+                        self.device = torch.device("cpu")
+                        self.model.to(self.device)
+                        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+                        logits = self.model(**inputs).logits.view(-1).float()
+                    else:
+                        raise
                 scores.extend(logits.cpu().tolist())
 
         return scores
@@ -61,8 +88,11 @@ class BGEReranker:
         valid_indices: List[int] = []
 
         for idx, item in enumerate(retrieved):
-            meta = item.get("metadata", {})
-            text = (meta.get("text", "") or "").strip()
+            meta_raw = item.get("metadata")
+            meta = meta_raw if isinstance(meta_raw, dict) else {}
+            text_raw = meta.get("text", "")
+            text = text_raw if isinstance(text_raw, str) else ("" if text_raw is None else str(text_raw))
+            text = text.strip()
             if not text:
                 continue
             pairs.append((q, text))

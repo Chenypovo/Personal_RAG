@@ -3,3 +3,5 @@ streamlit>=1.44.0
 faiss-cpu>=1.8.0
 python-dotenv>=1.0.1
 pypdf>=5.1.0
+transformers>=4.46.0
+torch>=2.3.0
