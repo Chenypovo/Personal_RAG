@@ -1,6 +1,6 @@
 # Personal RAG
 
-一个简单的个人 RAG 项目（Python + FAISS + OpenAI-Compatible API）。
+一个简单的个人 RAG 项目。
 
 ## 支持内容
 
@@ -46,10 +46,10 @@ cp .env.example .env
 ```env
 LLM_PROVIDER=openai_compatible
 EMBED_PROVIDER=openai_compatible
-LLM_MODEL=glm-4-flash
-EMBED_MODEL=embedding-3
+LLM_MODEL=
+EMBED_MODEL=
 OPENAI_COMPAT_API_KEY=your_api_key
-OPENAI_COMPAT_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+OPENAI_COMPAT_BASE_URL=
 ```
 
 3. 放入文档
@@ -65,7 +65,7 @@ python scripts/build_index.py --input-dir data/uploads
 5. 查询
 
 ```bash
-python scripts/query_demo.py --query "什么是 FAISS？"
+python scripts/query_demo.py --query "你的问题"
 ```
 
 ## 示例命令
