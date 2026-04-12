@@ -25,6 +25,27 @@ cp .env.example .env
 
 把数据放到 `data/uploads/` 后执行。
 
+## 模型说明
+
+- 聊天模型（生成回答）
+  - 来源：`.env` 中 `LLM_MODEL`
+  - 默认值：`glm-4-flash`
+  - 调用方式：OpenAI-compatible Chat Completions
+
+- 文本 Embedding 模型（`openai` 检索模式）
+  - 来源：`.env` 中 `EMBED_MODEL`
+  - 默认值：`embedding-3`
+  - 调用方式：OpenAI-compatible Embeddings
+
+- 多模态 Embedding 模型（`clip` 检索模式）
+  - 模型：`openai/clip-vit-base-patch32`
+  - 用途：文本与图片同向量空间检索（视频先抽帧再检索）
+
+- Reranker（可选模块）
+  - 模型：`BAAI/bge-reranker-base`
+  - 代码位置：`app/reranker/bge_reranker.py`
+  - 说明：当前默认流程未开启，可按需接入到检索后重排
+
 ## 常用命令
 
 1. 文本建库（OpenAI embedding）
