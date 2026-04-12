@@ -5,3 +5,5 @@ python-dotenv>=1.0.1
 pypdf>=5.1.0
 transformers>=4.46.0
 torch>=2.3.0
+opencv-python>=4.10.0
+Pillow>=10.0.0

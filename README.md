@@ -1,150 +1,58 @@
 # Personal RAG
 
-一个简单的个人 RAG 项目。
+一个简单的个人 RAG 项目，支持文本与多模态检索（图片 / 视频抽帧）。
 
-## 支持内容
+## 功能
 
-- 文档格式：`txt` / `md` / `pdf`
-- 切块：`chunk_size=700`，`overlap=120`
-- 向量：Embedding 接口
-- 检索：FAISS（Top-K，默认 4）
-- 生成：基于检索结果回答，并返回 chunk 来源
-
-## 项目结构
-
-```text
-Personal_RAG/
-├── app/
-│   ├── loader/
-│   ├── chunker/
-│   ├── embedder/
-│   ├── vectordb/
-│   ├── retriever/
-│   ├── generator/
-│   └── reranker/
-├── scripts/
-│   ├── build_index.py
-│   └── query_demo.py
-└── data/
-    └── uploads/
-```
+- 文档加载：`txt / md / pdf / image / video`
+- 文本切块：`chunk_size=700`，`overlap=120`
+- 向量检索：`FAISS`
+- 检索模式：
+  - `openai`：文本 embedding
+  - `clip`：文本 + 图片同空间检索（视频先抽帧）
 
 ## 快速开始
-
-1. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. 配置环境变量
+复制并填写 `.env`：
 
 ```bash
 cp .env.example .env
 ```
 
-填写 `.env`：
+把数据放到 `data/uploads/` 后执行。
 
-```env
-LLM_PROVIDER=openai_compatible
-EMBED_PROVIDER=openai_compatible
-LLM_MODEL=
-EMBED_MODEL=
-OPENAI_COMPAT_API_KEY=your_api_key
-OPENAI_COMPAT_BASE_URL=
-```
+## 常用命令（简洁版）
 
-3. 放入文档
-
-把 `txt/md/pdf` 文件放到 `data/uploads/`。
-
-4. 建索引
+1. 文本建库（OpenAI embedding）
 
 ```bash
-python scripts/build_index.py --input-dir data/uploads
+python scripts/build_index.py --input-dir data/uploads --embed-backend openai
 ```
 
-5. 查询
+2. 多模态建库（CLIP，CPU）
 
 ```bash
-python scripts/query_demo.py --query "你的问题"
+python scripts/build_index.py --input-dir data/uploads --embed-backend clip --clip-device cpu
 ```
 
-## 示例命令
-
-- 显示检索到的 chunk 文本
+3. 文本问答（OpenAI）
 
 ```bash
-python scripts/query_demo.py --query "FAISS 的作用是什么？" --show-chunks
+python scripts/query_demo.py --query "什么是 FAISS？" --embed-backend openai
 ```
 
-- 启用 Cross-Encoder 重排（先召回再 rerank）
+4. 图片检索问答（CLIP，CPU）
 
 ```bash
-python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cpu --show-chunks
+python scripts/query_demo.py --query-image "data/uploads/cat.png" --query "这张图描述了什么？" --embed-backend clip --clip-device cpu
 ```
 
-- 启用 Cross-Encoder 重排（GPU）
+5. 严格检索（不补齐 top-k）+ 打印召回内容
 
 ```bash
-python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cuda --show-chunks
+python scripts/query_demo.py --query-image "data/uploads/cat.png" --query "这张图是什么？" --embed-backend clip --clip-device cpu --top-k 4 --candidate-k 50 --max-distance 0.5 --strict --show-chunks
 ```
-
-- 关闭检索（只测生成接口）
-
-```bash
-python scripts/query_demo.py --query "什么是 FAISS？" --no-retrieval
-```
-
-## 用户指南（CPU / GPU）
-
-1. 启动 Web 界面
-
-```bash
-streamlit run web/streamlit_app.py
-```
-
-2. 仅 CPU 用户（推荐先用这个验证流程）
-
-```bash
-python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cpu --show-chunks
-```
-
-3. 有 NVIDIA GPU 用户
-
-```bash
-python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cuda --show-chunks
-```
-
-4. 如果 GPU 内核不兼容报错（如 `fmha_cutlass`），先改回 CPU
-
-```bash
-python scripts/query_demo.py --query "什么是 FAISS？" --top-k 4 --use-rerank --rerank-top-n 20 --rerank-device cpu
-```
-
-## 界面示例
-
-![Streamlit Example](./image.png)
-
-## 示例输出
-
-```text
->python scripts/query_demo.py --query "文档没写的内容是什么？"
-=== Answer ===
-根据现有资料无法确定具体遗漏的内容。提供的上下文主要涵盖 Faiss 的定义、功能、代码示例和发展历程，但未提及具体应用场景、技术局限性或最新更新细节。
-```
-
-```text
->python scripts/query_demo.py --query "什么是faiss"
-=== Answer ===
-Faiss 是一个专门用于快速处理大规模向量数据的相似度搜索的算法库，主要解决传统暴力搜索在处理大数据时的性能问题。它可以高效地在向量空间中找到相似向量，常用于推荐系统、图像匹配等场景。根据资料，Faiss 是向量数据库的核心引擎，尤其在大模型时代和检索增强生成（RAG）技术中发挥重要作用。[1][2][3]
-```
-
-## 常见报错
-
-- `could not open data/index/faiss.index`：先运行建索引命令。
-- `No supported files found`：检查输入目录里是否有 `txt/md/pdf`。
-
-## 联系方式
-
-- 邮箱：`yipeng003@e.ntu.edu.sg`
