@@ -25,7 +25,7 @@ cp .env.example .env
 
 把数据放到 `data/uploads/` 后执行。
 
-## 常用命令（简洁版）
+## 常用命令
 
 1. 文本建库（OpenAI embedding）
 
