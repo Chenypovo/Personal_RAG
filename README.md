@@ -56,3 +56,9 @@ python scripts/query_demo.py --query-image "data/uploads/cat.png" --query "这�
 ```bash
 python scripts/query_demo.py --query-image "data/uploads/cat.png" --query "这张图是什么？" --embed-backend clip --clip-device cpu --top-k 4 --candidate-k 50 --max-distance 0.5 --strict --show-chunks
 ```
+
+6. Streamlit 页面（上传文本/图片/视频并检索）
+
+```bash
+streamlit run web/streamlit_app.py
+```
