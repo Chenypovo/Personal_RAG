@@ -62,7 +62,7 @@ streamlit run web/streamlit_app.py
 python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qrels data/eval/qrels_example.jsonl --backend all --ks 1,4 --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --vector-k 40 --bm25-k 40 --rrf-k 60
 ```
 
-### 最近一次实验结果（你提供的数据）
+### 最近一次实验结果（基于我本地上传的论文）
 
 | Backend | Recall@1 | MRR@1 | Recall@4 | MRR@4 |
 | --- | ---: | ---: | ---: | ---: |
@@ -70,7 +70,7 @@ python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qre
 | bm25 | 0.4706 | 0.5294 | 0.9412 | 0.7010 |
 | hybrid | **0.5294** | **0.6471** | 0.9118 | **0.7794** |
 
-## 如何人工构建评测集（最小流程）
+## 如何人工构建评测集
 
 1. 准备查询文件：`data/eval/queries.jsonl`
    每行一个 JSON，至少包含 `query_id` 和 `query`。  
@@ -80,12 +80,8 @@ python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qre
 3. 相关文档标识必须和索引里一致。
    可从 [metadatas.json](/D:/personal_rag/data/index/metadatas.json) 查看真实 `source/chunk_id`。  
 
-## 评测集示例（可复制模板）
+## 评测集示例（建议将建库后的metadatas.json与原始文档，以及这两个jsonl文件喂给LLM让其生成评测集）
 
 - [queries_example.jsonl](/D:/personal_rag/data/eval/queries_example.jsonl)
 - [qrels_example.jsonl](/D:/personal_rag/data/eval/qrels_example.jsonl)
 
-## 隐私与提交
-
-- `data/uploads/*.pdf` 默认忽略，避免私人 PDF 误提交。
-- `data/eval/*.jsonl` 默认忽略，仅允许提交 `*_example.jsonl` 模板文件。
