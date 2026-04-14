@@ -1,17 +1,16 @@
 # Personal RAG
 
-一个简单可跑的个人 RAG（文本 + 多模态）项目。  
-核心栈：Python + Streamlit + FAISS + OpenAI-compatible API + BM25。
+一个简洁的个人 RAG 项目，支持文本与多模态检索。  
+核心技术栈：Python + Streamlit + FAISS + BM25 + OpenAI-compatible API。
 
 ## 功能
 
-- 文件上传与解析：`txt / md / pdf / image / video`
+- 文件输入：`txt / md / pdf / image / video`
 - 文本切块：`chunk_size=700`，`overlap=120`
 - 向量检索：FAISS
-- 关键词检索：BM25（`jieba` + 规则 token + 中文 2-gram fallback）
+- 关键词检索：BM25（`jieba` + regex 保护 token + CJK 2-gram fallback）
 - 混合检索：FAISS + BM25（RRF 融合）
-- 生成回答：OpenAI-compatible chat model
-- 输出引用：基于检索 chunk 的 `source/chunk_id`
+- 检索评测：`Recall@K`、`MRR@K`
 
 ## 安装
 
@@ -19,25 +18,19 @@
 pip install -r requirements.txt
 ```
 
-复制并配置环境变量：
+复制并配置 `.env`：
 
 ```bash
 cp .env.example .env
 ```
 
-## 使用流程（推荐）
+## 建库与查询
 
-1. 把文件放到 `data/uploads/`
-2. 先建库（FAISS + BM25）
-3. 再查询（vector 或 hybrid 对比）
-
-## 建库命令
+建库（同时生成 FAISS + BM25）：
 
 ```bash
 python scripts/build_index.py --input-dir data/uploads --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --embed-backend openai
 ```
-
-## 查询命令
 
 仅向量检索（FAISS）：
 
@@ -51,25 +44,48 @@ python scripts/query_demo.py --retrieval-backend vector --embed-backend openai -
 python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 4 --vector-k 40 --bm25-k 40 --rrf-k 60 --show-chunks
 ```
 
-仅 BM25 baseline：
-
-```bash
-python scripts/query_demo.py --retrieval-backend bm25 --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 4 --show-chunks
-```
-
-## Streamlit
+网页端：
 
 ```bash
 streamlit run web/streamlit_app.py
 ```
 
-页面内建议流程：
+## 检索评测
 
-- 上传后先点 `Save Uploads`，再点 `Build Index`
-- 查询阶段优先用 `hybrid`
-- 如果结果为空，先提高 `top_k/candidate_k`，再关闭 `strict_mode`
+评测脚本：
 
-## 隐私说明
+- [eval_retrieval.py](/D:/personal_rag/scripts/eval_retrieval.py)
 
-`data/uploads` 是本地目录，建议放个人文件。  
-仓库默认忽略 `data/uploads/*.pdf`，避免误提交私人 PDF。
+运行示例：
+
+```bash
+python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qrels data/eval/qrels_example.jsonl --backend all --ks 1,4 --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --vector-k 40 --bm25-k 40 --rrf-k 60
+```
+
+### 最近一次实验结果（你提供的数据）
+
+| Backend | Recall@1 | MRR@1 | Recall@4 | MRR@4 |
+| --- | ---: | ---: | ---: | ---: |
+| vector | 0.0882 | 0.1176 | 0.1471 | 0.1373 |
+| bm25 | 0.4706 | 0.5294 | 0.9412 | 0.7010 |
+| hybrid | **0.5294** | **0.6471** | 0.9118 | **0.7794** |
+
+## 如何人工构建评测集（最小流程）
+
+1. 准备查询文件：`data/eval/queries.jsonl`
+   每行一个 JSON，至少包含 `query_id` 和 `query`。  
+2. 准备标注文件：`data/eval/qrels.jsonl`
+   每行一个 JSON，包含 `query_id` + 相关文档标识。  
+   你可以用 `doc_id`，或者用 `source + chunk_id`。  
+3. 相关文档标识必须和索引里一致。
+   可从 [metadatas.json](/D:/personal_rag/data/index/metadatas.json) 查看真实 `source/chunk_id`。  
+
+## 评测集示例（可复制模板）
+
+- [queries_example.jsonl](/D:/personal_rag/data/eval/queries_example.jsonl)
+- [qrels_example.jsonl](/D:/personal_rag/data/eval/qrels_example.jsonl)
+
+## 隐私与提交
+
+- `data/uploads/*.pdf` 默认忽略，避免私人 PDF 误提交。
+- `data/eval/*.jsonl` 默认忽略，仅允许提交 `*_example.jsonl` 模板文件。

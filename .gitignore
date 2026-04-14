@@ -9,3 +9,5 @@ __pycache__/
 data/index/
 data/frames/
 data/uploads/*.pdf
+data/eval/*.jsonl
+!data/eval/*_example.jsonl
