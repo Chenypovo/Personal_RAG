@@ -12,6 +12,7 @@ if PROJECT_ROOT not in sys.path:
 from app.chunker.text_chunker import chunk_text  # noqa: E402
 from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedder  # noqa: E402
 from app.loader import SUPPORTED_EXTENSIONS, load_document  # noqa: E402
+from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
 
 
@@ -154,11 +155,31 @@ def embed_records_clip(
     return vectors, metadatas
 
 
+def build_bm25(
+    records: List[Dict[str, Any]],
+    bm25_path: str,
+    jieba_user_dicts: List[str],
+    enable_cjk_bigram_fallback: bool,
+) -> Tuple[int, int]:
+    bm25 = BM25Store(
+        user_dict_paths=jieba_user_dicts,
+        enable_cjk_bigram_fallback=enable_cjk_bigram_fallback,
+    )
+    bm25.build_from_records(records)
+
+    if not bm25.corpus_tokens:
+        return 0, 0
+
+    bm25.save(bm25_path)
+    return len(bm25.corpus_tokens), len(bm25.metadatas)
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build FAISS index from local multimodal files")
+    parser = argparse.ArgumentParser(description="Build FAISS + BM25 index from local multimodal files")
     parser.add_argument("--input-dir", type=str, default="data/uploads")
     parser.add_argument("--index-path", type=str, default="data/index/faiss.index")
     parser.add_argument("--meta-path", type=str, default="data/index/metadatas.json")
+    parser.add_argument("--bm25-path", type=str, default="data/index/bm25.json")
     parser.add_argument("--chunk-size", type=int, default=700)
     parser.add_argument("--overlap", type=int, default=120)
 
@@ -172,6 +193,19 @@ def main() -> None:
     parser.add_argument("--clip-model-name", type=str, default="openai/clip-vit-base-patch32")
     parser.add_argument("--clip-device", type=str, default="cpu")
     parser.add_argument("--clip-batch-size", type=int, default=32)
+
+    parser.add_argument("--skip-bm25", action="store_true", help="Skip BM25 build")
+    parser.add_argument(
+        "--jieba-user-dict",
+        action="append",
+        default=[],
+        help="Path to jieba custom dictionary. Can be used multiple times.",
+    )
+    parser.add_argument(
+        "--disable-cjk-bigram-fallback",
+        action="store_true",
+        help="Disable CJK 2-gram fallback in BM25 tokenizer",
+    )
 
     args = parser.parse_args()
 
@@ -208,11 +242,27 @@ def main() -> None:
     store.add(vectors=vectors, metadatas=metadatas)
     store.save(index_path=args.index_path, meta_path=args.meta_path)
 
-    print("Index build complete.")
-    print(f"Index saved: {args.index_path}")
+    print("FAISS build complete.")
+    print(f"FAISS index saved: {args.index_path}")
     print(f"Metadata saved: {args.meta_path}")
     print(f"Vector dim: {dim}")
     print(f"Stored vectors: {len(vectors)}")
+
+    if args.skip_bm25:
+        print("BM25 skipped (--skip-bm25).")
+    else:
+        bm25_docs, bm25_metas = build_bm25(
+            records=records,
+            bm25_path=args.bm25_path,
+            jieba_user_dicts=args.jieba_user_dict,
+            enable_cjk_bigram_fallback=not args.disable_cjk_bigram_fallback,
+        )
+        if bm25_docs == 0:
+            print("BM25: no text records, nothing saved.")
+        else:
+            print("BM25 build complete.")
+            print(f"BM25 saved: {args.bm25_path}")
+            print(f"BM25 docs: {bm25_docs}, metadatas: {bm25_metas}")
 
 
 if __name__ == "__main__":

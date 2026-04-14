@@ -1,95 +1,75 @@
 # Personal RAG
 
-一个简单的个人 RAG 项目，支持文本与多模态检索，适合隐私文件检索。
+一个简单可跑的个人 RAG（文本 + 多模态）项目。  
+核心栈：Python + Streamlit + FAISS + OpenAI-compatible API + BM25。
 
 ## 功能
 
-- 文档加载：`txt / md / pdf / image / video`
-- PDF OCR 回退：扫描版/图片版 PDF 会自动尝试 OCR 提取文本
+- 文件上传与解析：`txt / md / pdf / image / video`
 - 文本切块：`chunk_size=700`，`overlap=120`
-- 向量检索：`FAISS`
-- 检索模式：
-  - `openai`：文本 embedding
-  - `clip`：文本 + 图片同空间检索（视频先抽帧）
+- 向量检索：FAISS
+- 关键词检索：BM25（`jieba` + 规则 token + 中文 2-gram fallback）
+- 混合检索：FAISS + BM25（RRF 融合）
+- 生成回答：OpenAI-compatible chat model
+- 输出引用：基于检索 chunk 的 `source/chunk_id`
 
-## 快速开始
+## 安装
 
 ```bash
 pip install -r requirements.txt
 ```
 
-复制并填写 `.env`：
+复制并配置环境变量：
 
 ```bash
 cp .env.example .env
 ```
 
-把数据放到 `data/uploads/` 后执行。
+## 使用流程（推荐）
 
-## 模型说明
+1. 把文件放到 `data/uploads/`
+2. 先建库（FAISS + BM25）
+3. 再查询（vector 或 hybrid 对比）
 
-- 聊天模型（生成回答）
-  - 来源：`.env` 中 `LLM_MODEL`
-  - 默认值：`glm-4-flash`
-  - 调用方式：OpenAI-compatible Chat Completions
-
-- 文本 Embedding 模型（`openai` 检索模式）
-  - 来源：`.env` 中 `EMBED_MODEL`
-  - 默认值：`embedding-3`
-  - 调用方式：OpenAI-compatible Embeddings
-
-- 多模态 Embedding 模型（`clip` 检索模式）
-  - 模型：`openai/clip-vit-base-patch32`
-  - 用途：文本与图片同向量空间检索（视频先抽帧再检索）
-
-- Reranker（可选模块）
-  - 模型：`BAAI/bge-reranker-base`
-  - 代码位置：`app/reranker/bge_reranker.py`
-  - 说明：当前默认流程未开启，可按需接入到检索后重排
-
-## 常用命令
-
-1. 文本建库（OpenAI embedding）
+## 建库命令
 
 ```bash
-python scripts/build_index.py --input-dir data/uploads --embed-backend openai
+python scripts/build_index.py --input-dir data/uploads --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --embed-backend openai
 ```
 
-2. 多模态建库（CLIP，CPU）
+## 查询命令
+
+仅向量检索（FAISS）：
 
 ```bash
-python scripts/build_index.py --input-dir data/uploads --embed-backend clip --clip-device cpu
+python scripts/query_demo.py --retrieval-backend vector --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --query "总结这个pdf核心内容，用中文" --top-k 4 --show-chunks
 ```
 
-3. 文本问答（OpenAI）
+混合检索（FAISS + BM25）：
 
 ```bash
-python scripts/query_demo.py --query "什么是 FAISS？" --embed-backend openai
+python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 4 --vector-k 40 --bm25-k 40 --rrf-k 60 --show-chunks
 ```
 
-4. 图片检索问答（CLIP，CPU）
+仅 BM25 baseline：
 
 ```bash
-python scripts/query_demo.py --query-image "data/uploads/cat.png" --query "这张图描述了什么？" --embed-backend clip --clip-device cpu
+python scripts/query_demo.py --retrieval-backend bm25 --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 4 --show-chunks
 ```
 
-5. 严格检索（不补齐 top-k）+ 打印召回内容
-
-```bash
-python scripts/query_demo.py --query-image "data/uploads/cat.png" --query "这张图是什么？" --embed-backend clip --clip-device cpu --top-k 4 --candidate-k 50 --max-distance 0.5 --strict --show-chunks
-```
-
-6. Streamlit 页面（上传文本/图片/视频并检索）
+## Streamlit
 
 ```bash
 streamlit run web/streamlit_app.py
 ```
 
-## 网页版推荐用法
+页面内建议流程：
 
-- 推荐优先使用网页版，操作更直观。
-- 上传文件后，先点 `Save Uploads`，再点 `Build Index`。
-- 如果显示没有结果：
-- 先把 `top_k` 调高（如果你启用了 rerank，这里指 rerank 阶段保留结果用的 `top_k`）。
-- 再尝试关闭 `strict_mode`（等价于取消严格过滤，通常能解决）。
-- 如果希望回答是中文，直接在 query 里写明：`请用中文回答`。
+- 上传后先点 `Save Uploads`，再点 `Build Index`
+- 查询阶段优先用 `hybrid`
+- 如果结果为空，先提高 `top_k/candidate_k`，再关闭 `strict_mode`
+
+## 隐私说明
+
+`data/uploads` 是本地目录，建议放个人文件。  
+仓库默认忽略 `data/uploads/*.pdf`，避免误提交私人 PDF。

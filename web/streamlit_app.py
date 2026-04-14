@@ -14,6 +14,7 @@ from app.chunker.text_chunker import chunk_text  # noqa: E402
 from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedder  # noqa: E402
 from app.generator.generator import OpenAICompatibleGenerator  # noqa: E402
 from app.loader import SUPPORTED_EXTENSIONS, load_document  # noqa: E402
+from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
 
 
@@ -74,6 +75,15 @@ def _as_vector(v: Any) -> List[float]:
     if not isinstance(v, list):
         raise TypeError(f"Expected list-like vector, got {type(v).__name__}")
     return [float(x) for x in v]
+
+
+def _doc_key(meta: Dict[str, Any], fallback_idx: int) -> str:
+    doc_id = meta.get("doc_id")
+    if isinstance(doc_id, str) and doc_id.strip():
+        return doc_id.strip()
+    source = str(meta.get("source", "unknown"))
+    chunk_id = meta.get("chunk_id", fallback_idx)
+    return f"{source}#{chunk_id}"
 
 
 def _normalize_entry(entry: Dict[str, Any], fallback_source: str, fallback_file_type: str) -> Dict[str, Any]:
@@ -172,6 +182,15 @@ def _build_index_clip(
     return vectors, metadatas
 
 
+def _build_bm25(records: List[Dict[str, Any]], bm25_path: Path) -> Tuple[int, int]:
+    bm25 = BM25Store()
+    bm25.build_from_records(records)
+    if not bm25.corpus_tokens:
+        return 0, 0
+    bm25.save(str(bm25_path))
+    return len(bm25.corpus_tokens), len(bm25.metadatas)
+
+
 def _query_vector(
     embed_backend: str,
     query_text: str,
@@ -208,6 +227,97 @@ def _query_vector(
     return _as_vector(q), q_text
 
 
+def _retrieve_vector(
+    *,
+    index_path: Path,
+    meta_path: Path,
+    query_vector: List[float],
+    top_k: int,
+    candidate_k: int,
+    max_distance: float,
+    strict_mode: bool,
+) -> List[Dict[str, Any]]:
+    store = FaissStore.load(index_path=str(index_path), meta_path=str(meta_path))
+    candidates = store.search(query_vector=query_vector, top_k=max(top_k, candidate_k))
+
+    filtered: List[Dict[str, Any]] = []
+    for item in candidates:
+        d = item.get("distance")
+        if isinstance(d, (int, float)) and d <= float(max_distance):
+            filtered.append(item)
+
+    if filtered:
+        return filtered[:top_k]
+    if strict_mode:
+        return []
+    return candidates[:top_k]
+
+
+def _retrieve_bm25(*, bm25_path: Path, query_text: str, top_k: int) -> List[Dict[str, Any]]:
+    bm25 = BM25Store.load(str(bm25_path))
+    return bm25.search(query=query_text, top_k=top_k)
+
+
+def _retrieve_hybrid(
+    *,
+    index_path: Path,
+    meta_path: Path,
+    bm25_path: Path,
+    query_text: str,
+    query_vector: List[float],
+    top_k: int,
+    vector_k: int,
+    bm25_k: int,
+    rrf_k: int,
+    candidate_k: int,
+    max_distance: float,
+    strict_mode: bool,
+) -> List[Dict[str, Any]]:
+    vec_items = _retrieve_vector(
+        index_path=index_path,
+        meta_path=meta_path,
+        query_vector=query_vector,
+        top_k=max(top_k, vector_k),
+        candidate_k=max(candidate_k, vector_k),
+        max_distance=max_distance,
+        strict_mode=strict_mode,
+    )
+    bm25_items = _retrieve_bm25(
+        bm25_path=bm25_path,
+        query_text=query_text,
+        top_k=max(top_k, bm25_k),
+    )
+
+    fused_scores: Dict[str, float] = {}
+    chosen_item: Dict[str, Dict[str, Any]] = {}
+
+    for rank, item in enumerate(vec_items, start=1):
+        meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        key = _doc_key(meta, rank)
+        fused_scores[key] = fused_scores.get(key, 0.0) + 1.0 / (rrf_k + rank)
+        chosen_item[key] = item
+
+    for rank, item in enumerate(bm25_items, start=1):
+        meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        key = _doc_key(meta, rank)
+        fused_scores[key] = fused_scores.get(key, 0.0) + 1.0 / (rrf_k + rank)
+        if key not in chosen_item:
+            chosen_item[key] = item
+        else:
+            merged = dict(chosen_item[key])
+            if "score" not in merged and isinstance(item.get("score"), (int, float)):
+                merged["score"] = item["score"]
+            chosen_item[key] = merged
+
+    ranked_keys = sorted(fused_scores.keys(), key=lambda k: fused_scores[k], reverse=True)
+    fused: List[Dict[str, Any]] = []
+    for key in ranked_keys[:top_k]:
+        item = dict(chosen_item[key])
+        item["hybrid_score"] = float(fused_scores[key])
+        fused.append(item)
+    return fused
+
+
 def main() -> None:
     st.set_page_config(page_title="Personal RAG", layout="wide")
     st.title("Personal RAG (Multimodal)")
@@ -218,6 +328,7 @@ def main() -> None:
     query_dir = data_dir / "queries"
     index_path = data_dir / "index" / "faiss.index"
     meta_path = data_dir / "index" / "metadatas.json"
+    bm25_path = data_dir / "index" / "bm25.json"
 
     with st.sidebar:
         st.header("Index Settings")
@@ -230,11 +341,15 @@ def main() -> None:
         clip_device = st.selectbox("clip_device", options=["cpu", "cuda"], index=0)
         clip_batch_size = st.number_input("clip_batch_size", min_value=1, max_value=128, value=32, step=1)
 
-        st.subheader("Query Filter")
+        st.subheader("Retrieval")
+        retrieval_backend = st.selectbox("retrieval_backend", options=["vector", "hybrid", "bm25"], index=1)
         top_k = st.number_input("top_k", min_value=1, max_value=20, value=4, step=1)
         candidate_k = st.number_input("candidate_k", min_value=1, max_value=200, value=40, step=1)
         max_distance = st.number_input("max_distance", min_value=0.0, max_value=10.0, value=0.8, step=0.05)
         strict_mode = st.checkbox("strict_mode (no backfill)", value=True)
+        vector_k = st.number_input("vector_k (hybrid)", min_value=1, max_value=200, value=40, step=1)
+        bm25_k = st.number_input("bm25_k (hybrid)", min_value=1, max_value=200, value=40, step=1)
+        rrf_k = st.number_input("rrf_k (hybrid)", min_value=1, max_value=500, value=60, step=1)
 
     st.subheader("1) Upload Files")
     uploaded_files = st.file_uploader(
@@ -256,6 +371,9 @@ def main() -> None:
         if st.button("Build Index", use_container_width=True):
             try:
                 with st.spinner("Building index..."):
+                    if uploaded_files:
+                        _save_uploaded_files(uploaded_files, upload_dir)
+
                     file_paths = _collect_files(upload_dir)
                     if not file_paths:
                         raise ValueError(f"No supported files found in: {upload_dir}")
@@ -275,6 +393,14 @@ def main() -> None:
                         )
 
                     if not vectors:
+                        text_count = sum(1 for r in records if str(r.get("modality", "text")) == "text")
+                        image_count = sum(1 for r in records if str(r.get("modality", "")) == "image")
+                        if embed_backend == "openai":
+                            raise ValueError(
+                                "No vectors generated in openai mode. "
+                                f"Current records: text={text_count}, image={image_count}. "
+                                "Use clip mode for image/video or upload text/PDF with extractable text."
+                            )
                         raise ValueError("No vectors generated")
 
                     dim = len(vectors[0])
@@ -282,11 +408,13 @@ def main() -> None:
                     store.add(vectors=vectors, metadatas=metadatas)
                     store.save(index_path=str(index_path), meta_path=str(meta_path))
 
+                    bm25_docs, _ = _build_bm25(records=records, bm25_path=bm25_path)
+
                 text_count = sum(1 for r in metadatas if str(r.get("modality", "text")) == "text")
                 image_count = sum(1 for r in metadatas if str(r.get("modality", "")) == "image")
                 st.success(
                     f"Index built: files={len(file_paths)} vectors={len(vectors)} dim={dim} "
-                    f"(text={text_count}, image={image_count})"
+                    f"(text={text_count}, image={image_count}) | bm25_docs={bm25_docs}"
                 )
             except Exception as e:
                 st.error(f"Build failed: {e}")
@@ -298,10 +426,6 @@ def main() -> None:
     show_chunks = st.checkbox("Show retrieved chunks", value=True)
 
     if st.button("Run Query", type="primary"):
-        if not index_path.exists() or not meta_path.exists():
-            st.error("Index files not found. Build index first.")
-            return
-
         saved_query_image = ""
         if query_image_file is not None:
             query_dir.mkdir(parents=True, exist_ok=True)
@@ -311,34 +435,75 @@ def main() -> None:
 
         try:
             with st.spinner("Retrieving and generating..."):
-                query_vector, effective_query_text = _query_vector(
-                    embed_backend=embed_backend,
-                    query_text=query_text,
-                    query_image_path=saved_query_image,
-                    clip_model_name=clip_model_name.strip(),
-                    clip_device=clip_device,
-                    clip_batch_size=int(clip_batch_size),
-                )
+                retrieved: List[Dict[str, Any]]
+                effective_query_text = query_text
 
-                store = FaissStore.load(index_path=str(index_path), meta_path=str(meta_path))
-                candidates = store.search(
-                    query_vector=query_vector,
-                    top_k=max(int(top_k), int(candidate_k)),
-                )
-
-                filtered: List[Dict[str, Any]] = []
-                for item in candidates:
-                    d = item.get("distance")
-                    if isinstance(d, (int, float)) and d <= float(max_distance):
-                        filtered.append(item)
-
-                if filtered:
-                    retrieved = filtered[: int(top_k)]
+                if retrieval_backend == "bm25":
+                    if not bm25_path.exists():
+                        st.error("BM25 index file not found. Build index first.")
+                        return
+                    if saved_query_image:
+                        st.error("BM25 backend does not support image-only query.")
+                        return
+                    if not effective_query_text.strip():
+                        st.error("BM25 backend requires text query.")
+                        return
+                    retrieved = _retrieve_bm25(
+                        bm25_path=bm25_path,
+                        query_text=effective_query_text,
+                        top_k=int(top_k),
+                    )
                 else:
-                    retrieved = [] if strict_mode else candidates[: int(top_k)]
+                    if not index_path.exists() or not meta_path.exists():
+                        st.error("FAISS index files not found. Build index first.")
+                        return
+
+                    query_vector, effective_query_text = _query_vector(
+                        embed_backend=embed_backend,
+                        query_text=effective_query_text,
+                        query_image_path=saved_query_image,
+                        clip_model_name=clip_model_name.strip(),
+                        clip_device=clip_device,
+                        clip_batch_size=int(clip_batch_size),
+                    )
+
+                    if retrieval_backend == "vector":
+                        retrieved = _retrieve_vector(
+                            index_path=index_path,
+                            meta_path=meta_path,
+                            query_vector=query_vector,
+                            top_k=int(top_k),
+                            candidate_k=int(candidate_k),
+                            max_distance=float(max_distance),
+                            strict_mode=bool(strict_mode),
+                        )
+                    else:
+                        if not bm25_path.exists():
+                            st.error("BM25 index file not found. Build index first.")
+                            return
+                        if not effective_query_text.strip():
+                            st.error("Hybrid backend requires text query.")
+                            return
+                        retrieved = _retrieve_hybrid(
+                            index_path=index_path,
+                            meta_path=meta_path,
+                            bm25_path=bm25_path,
+                            query_text=effective_query_text,
+                            query_vector=query_vector,
+                            top_k=int(top_k),
+                            vector_k=int(vector_k),
+                            bm25_k=int(bm25_k),
+                            rrf_k=int(rrf_k),
+                            candidate_k=int(candidate_k),
+                            max_distance=float(max_distance),
+                            strict_mode=bool(strict_mode),
+                        )
 
                 if not retrieved:
-                    st.warning("No sufficiently relevant evidence found. Increase max_distance or disable strict_mode.")
+                    st.warning(
+                        "No sufficiently relevant evidence found. "
+                        "Try hybrid backend, increase top_k/candidate_k, or disable strict_mode."
+                    )
                     return
 
                 generator = OpenAICompatibleGenerator()
@@ -363,9 +528,20 @@ def main() -> None:
                         text = text_raw if isinstance(text_raw, str) else ("" if text_raw is None else str(text_raw))
                         text = text.strip()
                         distance = item.get("distance")
-                        distance_text = f" distance={distance:.4f}" if isinstance(distance, (int, float)) else ""
+                        score = item.get("score")
+                        hybrid_score = item.get("hybrid_score")
+
+                        extra: List[str] = []
+                        if isinstance(score, (int, float)):
+                            extra.append(f"score={score:.4f}")
+                        if isinstance(hybrid_score, (int, float)):
+                            extra.append(f"hybrid_score={hybrid_score:.4f}")
+                        if isinstance(distance, (int, float)):
+                            extra.append(f"distance={distance:.4f}")
+                        extra_text = (" " + " ".join(extra)) if extra else ""
+
                         st.markdown(
-                            f"**[{i}] source={meta.get('source')} chunk_id={meta.get('chunk_id')}{distance_text}**"
+                            f"**[{i}] source={meta.get('source')} chunk_id={meta.get('chunk_id')}{extra_text}**"
                         )
                         st.write(text)
                         if meta.get("image_path"):

@@ -8,3 +8,4 @@ __pycache__/
 # runtime artifacts
 data/index/
 data/frames/
+data/uploads/*.pdf
