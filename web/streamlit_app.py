@@ -14,6 +14,7 @@ from app.chunker.text_chunker import chunk_text  # noqa: E402
 from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedder  # noqa: E402
 from app.generator.generator import OpenAICompatibleGenerator  # noqa: E402
 from app.loader import SUPPORTED_EXTENSIONS, load_document  # noqa: E402
+from app.reranker.bge_reranker import BGEReranker  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
 
@@ -236,6 +237,7 @@ def _retrieve_vector(
     candidate_k: int,
     max_distance: float,
     strict_mode: bool,
+    output_k: int | None = None,
 ) -> List[Dict[str, Any]]:
     store = FaissStore.load(index_path=str(index_path), meta_path=str(meta_path))
     candidates = store.search(query_vector=query_vector, top_k=max(top_k, candidate_k))
@@ -246,11 +248,13 @@ def _retrieve_vector(
         if isinstance(d, (int, float)) and d <= float(max_distance):
             filtered.append(item)
 
+    limit = output_k if output_k is not None else top_k
+
     if filtered:
-        return filtered[:top_k]
+        return filtered[:limit]
     if strict_mode:
         return []
-    return candidates[:top_k]
+    return candidates[:limit]
 
 
 def _retrieve_bm25(*, bm25_path: Path, query_text: str, top_k: int) -> List[Dict[str, Any]]:
@@ -272,6 +276,7 @@ def _retrieve_hybrid(
     candidate_k: int,
     max_distance: float,
     strict_mode: bool,
+    output_k: int | None = None,
 ) -> List[Dict[str, Any]]:
     vec_items = _retrieve_vector(
         index_path=index_path,
@@ -281,11 +286,12 @@ def _retrieve_hybrid(
         candidate_k=max(candidate_k, vector_k),
         max_distance=max_distance,
         strict_mode=strict_mode,
+        output_k=max(output_k or top_k, vector_k),
     )
     bm25_items = _retrieve_bm25(
         bm25_path=bm25_path,
         query_text=query_text,
-        top_k=max(top_k, bm25_k),
+        top_k=max(output_k or top_k, bm25_k),
     )
 
     fused_scores: Dict[str, float] = {}
@@ -311,11 +317,34 @@ def _retrieve_hybrid(
 
     ranked_keys = sorted(fused_scores.keys(), key=lambda k: fused_scores[k], reverse=True)
     fused: List[Dict[str, Any]] = []
-    for key in ranked_keys[:top_k]:
+    limit = output_k if output_k is not None else top_k
+    for key in ranked_keys[:limit]:
         item = dict(chosen_item[key])
         item["hybrid_score"] = float(fused_scores[key])
         fused.append(item)
     return fused
+
+
+def _rerank_items(
+    items: List[Dict[str, Any]],
+    query_text: str,
+    use_rerank: bool,
+    rerank_model: str,
+    rerank_device: str,
+    rerank_batch_size: int,
+    rerank_top_n: int,
+    final_top_k: int,
+) -> List[Dict[str, Any]]:
+    if not use_rerank or not items:
+        return items[:final_top_k]
+
+    reranker = BGEReranker(
+        model_name=rerank_model,
+        device=rerank_device or None,
+        batch_size=rerank_batch_size,
+    )
+    candidates = items[: max(len(items), rerank_top_n)]
+    return reranker.rerank(query=query_text, retrieved=candidates, top_k=final_top_k)
 
 
 def main() -> None:
@@ -350,6 +379,13 @@ def main() -> None:
         vector_k = st.number_input("vector_k (hybrid)", min_value=1, max_value=200, value=40, step=1)
         bm25_k = st.number_input("bm25_k (hybrid)", min_value=1, max_value=200, value=40, step=1)
         rrf_k = st.number_input("rrf_k (hybrid)", min_value=1, max_value=500, value=60, step=1)
+
+        st.subheader("Rerank")
+        use_rerank = st.checkbox("use_rerank", value=False)
+        rerank_model = st.text_input("rerank_model", value="BAAI/bge-reranker-base")
+        rerank_device = st.selectbox("rerank_device", options=["", "cpu", "cuda"], index=0)
+        rerank_batch_size = st.number_input("rerank_batch_size", min_value=1, max_value=128, value=16, step=1)
+        rerank_top_n = st.number_input("rerank_top_n", min_value=1, max_value=200, value=20, step=1)
 
     st.subheader("1) Upload Files")
     uploaded_files = st.file_uploader(
@@ -451,7 +487,7 @@ def main() -> None:
                     retrieved = _retrieve_bm25(
                         bm25_path=bm25_path,
                         query_text=effective_query_text,
-                        top_k=int(top_k),
+                        top_k=max(int(top_k), int(rerank_top_n)) if use_rerank else int(top_k),
                     )
                 else:
                     if not index_path.exists() or not meta_path.exists():
@@ -476,6 +512,7 @@ def main() -> None:
                             candidate_k=int(candidate_k),
                             max_distance=float(max_distance),
                             strict_mode=bool(strict_mode),
+                            output_k=max(int(top_k), int(rerank_top_n)) if use_rerank else int(top_k),
                         )
                     else:
                         if not bm25_path.exists():
@@ -497,6 +534,7 @@ def main() -> None:
                             candidate_k=int(candidate_k),
                             max_distance=float(max_distance),
                             strict_mode=bool(strict_mode),
+                            output_k=max(int(top_k), int(rerank_top_n)) if use_rerank else int(top_k),
                         )
 
                 if not retrieved:
@@ -505,6 +543,17 @@ def main() -> None:
                         "Try hybrid backend, increase top_k/candidate_k, or disable strict_mode."
                     )
                     return
+
+                retrieved = _rerank_items(
+                    items=retrieved,
+                    query_text=effective_query_text,
+                    use_rerank=bool(use_rerank),
+                    rerank_model=rerank_model.strip(),
+                    rerank_device=rerank_device,
+                    rerank_batch_size=int(rerank_batch_size),
+                    rerank_top_n=int(rerank_top_n),
+                    final_top_k=int(top_k),
+                )
 
                 generator = OpenAICompatibleGenerator()
                 result = generator.generate(query=effective_query_text, retrieved_chunks=retrieved)

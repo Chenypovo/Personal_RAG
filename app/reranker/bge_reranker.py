@@ -55,7 +55,7 @@ class BGEReranker:
                     max_length = 512,
                     return_tensors = 'pt',
                 )
-                inputs = {k: v.to(self.device) for k ,v in inputs.items()}
+                inputs = {k: v.to(self.device) for k, v in inputs.items()}
                 try:
                     with self._sdp_context():
                         logits = self.model(**inputs).logits.view(-1).float()

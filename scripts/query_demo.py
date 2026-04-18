@@ -10,6 +10,7 @@ if PROJECT_ROOT not in sys.path:
 
 from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedder  # noqa: E402
 from app.generator.generator import OpenAICompatibleGenerator  # noqa: E402
+from app.reranker.bge_reranker import BGEReranker  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
 
@@ -47,7 +48,12 @@ def _doc_key(meta: Dict[str, Any], fallback_idx: int) -> str:
     return f"{source}#{chunk_id}"
 
 
-def _retrieve_vector(args: argparse.Namespace, query_text: str, query_image: str) -> Tuple[List[Dict[str, Any]], str]:
+def _retrieve_vector(
+    args: argparse.Namespace,
+    query_text: str,
+    query_image: str,
+    output_k: int | None = None,
+) -> Tuple[List[Dict[str, Any]], str]:
     if args.embed_backend == "openai" and not query_text:
         raise ValueError("openai backend requires --query")
     if args.embed_backend == "clip" and not query_text and not query_image:
@@ -78,14 +84,21 @@ def _retrieve_vector(args: argparse.Namespace, query_text: str, query_image: str
         if isinstance(d, (int, float)) and d <= args.max_distance:
             filtered.append(item)
 
+    limit = output_k if output_k is not None else args.top_k
+
     if filtered:
-        return filtered[: args.top_k], query_text
+        return filtered[: limit], query_text
     if args.strict:
         return [], query_text
-    return candidates[: args.top_k], query_text
+    return candidates[: limit], query_text
 
 
-def _retrieve_bm25(args: argparse.Namespace, query_text: str, query_image: str) -> Tuple[List[Dict[str, Any]], str]:
+def _retrieve_bm25(
+    args: argparse.Namespace,
+    query_text: str,
+    query_image: str,
+    output_k: int | None = None,
+) -> Tuple[List[Dict[str, Any]], str]:
     if query_image:
         raise ValueError("bm25 retrieval does not support --query-image; use --query text")
     if not query_text:
@@ -95,11 +108,16 @@ def _retrieve_bm25(args: argparse.Namespace, query_text: str, query_image: str) 
         path=args.bm25_path,
         user_dict_paths=args.jieba_user_dict,
     )
-    retrieved = bm25.search(query=query_text, top_k=args.top_k)
+    retrieved = bm25.search(query=query_text, top_k=output_k if output_k is not None else args.top_k)
     return retrieved, query_text
 
 
-def _retrieve_hybrid(args: argparse.Namespace, query_text: str, query_image: str) -> Tuple[List[Dict[str, Any]], str]:
+def _retrieve_hybrid(
+    args: argparse.Namespace,
+    query_text: str,
+    query_image: str,
+    output_k: int | None = None,
+) -> Tuple[List[Dict[str, Any]], str]:
     # Hybrid is text-first. If image-only query is given, fallback to vector retrieval.
     if query_image and not query_text:
         print("[hybrid] image-only query detected; fallback to vector retrieval.")
@@ -112,11 +130,11 @@ def _retrieve_hybrid(args: argparse.Namespace, query_text: str, query_image: str
 
     vec_args = argparse.Namespace(**vars(args))
     vec_args.top_k = vector_top_k
-    vec_retrieved, query_text = _retrieve_vector(vec_args, query_text, "")
+    vec_retrieved, query_text = _retrieve_vector(vec_args, query_text, "", output_k=max(output_k or args.top_k, vector_top_k))
 
     bm25_args = argparse.Namespace(**vars(args))
     bm25_args.top_k = bm25_top_k
-    bm25_retrieved, _ = _retrieve_bm25(bm25_args, query_text, "")
+    bm25_retrieved, _ = _retrieve_bm25(bm25_args, query_text, "", output_k=max(output_k or args.top_k, bm25_top_k))
 
     # Reciprocal Rank Fusion (RRF).
     fused_scores: Dict[str, float] = {}
@@ -145,12 +163,34 @@ def _retrieve_hybrid(args: argparse.Namespace, query_text: str, query_image: str
 
     ranked_keys = sorted(fused_scores.keys(), key=lambda k: fused_scores[k], reverse=True)
     fused: List[Dict[str, Any]] = []
-    for k in ranked_keys[: args.top_k]:
+    limit = output_k if output_k is not None else args.top_k
+    for k in ranked_keys[: limit]:
         item = dict(best_item[k])
         item["hybrid_score"] = float(fused_scores[k])
         fused.append(item)
 
     return fused, query_text
+
+
+def _rerank_items(
+    items: List[Dict[str, Any]],
+    query_text: str,
+    use_rerank: bool,
+    rerank_model: str,
+    rerank_device: str,
+    rerank_batch_size: int,
+    rerank_top_n: int,
+) -> List[Dict[str, Any]]:
+    if not use_rerank or not items:
+        return items[:]
+
+    reranker = BGEReranker(
+        model_name=rerank_model,
+        device=rerank_device or None,
+        batch_size=rerank_batch_size,
+    )
+    candidates = items[: max(len(items), rerank_top_n)]
+    return reranker.rerank(query=query_text, retrieved=candidates, top_k=len(items))
 
 
 def main() -> None:
@@ -167,6 +207,11 @@ def main() -> None:
     parser.add_argument("--bm25-path", type=str, default="data/index/bm25.json")
     parser.add_argument("--no-retrieval", action="store_true", help="Disable retrieval and do direct generation")
     parser.add_argument("--show-chunks", action="store_true", help="Print retrieved chunk texts")
+    parser.add_argument("--use-rerank", action="store_true", help="Enable cross-encoder rerank")
+    parser.add_argument("--rerank-model", type=str, default="BAAI/bge-reranker-base")
+    parser.add_argument("--rerank-device", type=str, default="", help='e.g. "cpu" or "cuda"')
+    parser.add_argument("--rerank-batch-size", type=int, default=16)
+    parser.add_argument("--rerank-top-n", type=int, default=20, help="Rerank this many candidates before truncating")
 
     parser.add_argument(
         "--retrieval-backend",
@@ -206,11 +251,38 @@ def main() -> None:
     if args.no_retrieval:
         retrieved = _build_direct_context(query_text=query_text)
     elif args.retrieval_backend == "bm25":
-        retrieved, query_text = _retrieve_bm25(args, query_text, query_image)
+        retrieved, query_text = _retrieve_bm25(
+            args,
+            query_text,
+            query_image,
+            output_k=max(args.top_k, args.rerank_top_n) if args.use_rerank else args.top_k,
+        )
     elif args.retrieval_backend == "hybrid":
-        retrieved, query_text = _retrieve_hybrid(args, query_text, query_image)
+        retrieved, query_text = _retrieve_hybrid(
+            args,
+            query_text,
+            query_image,
+            output_k=max(args.top_k, args.rerank_top_n) if args.use_rerank else args.top_k,
+        )
     else:
-        retrieved, query_text = _retrieve_vector(args, query_text, query_image)
+        retrieved, query_text = _retrieve_vector(
+            args,
+            query_text,
+            query_image,
+            output_k=max(args.top_k, args.rerank_top_n) if args.use_rerank else args.top_k,
+        )
+
+    retrieved = _rerank_items(
+        items=retrieved,
+        query_text=query_text,
+        use_rerank=args.use_rerank,
+        rerank_model=args.rerank_model,
+        rerank_device=args.rerank_device,
+        rerank_batch_size=int(args.rerank_batch_size),
+        rerank_top_n=int(args.rerank_top_n),
+    )
+
+    retrieved = retrieved[: args.top_k]
 
     if not retrieved and not args.no_retrieval:
         print("\n=== Answer ===")

@@ -38,10 +38,22 @@ python scripts/build_index.py --input-dir data/uploads --index-path data/index/f
 python scripts/query_demo.py --retrieval-backend vector --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --query "总结这个pdf核心内容，用中文" --top-k 4 --show-chunks
 ```
 
+仅向量检索 + rerank：
+
+```bash
+python scripts/query_demo.py --retrieval-backend vector --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --query "总结这个pdf核心内容，用中文" --top-k 4 --candidate-k 20 --use-rerank --rerank-top-n 20 --show-chunks
+```
+
 混合检索（FAISS + BM25）：
 
 ```bash
 python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 4 --vector-k 40 --bm25-k 40 --rrf-k 60 --show-chunks
+```
+
+混合检索 + rerank：
+
+```bash
+python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 4 --vector-k 40 --bm25-k 40 --rrf-k 60 --use-rerank --rerank-top-n 20 --show-chunks
 ```
 
 网页端：
@@ -49,6 +61,8 @@ python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai -
 ```bash
 streamlit run web/streamlit_app.py
 ```
+
+网页端支持在侧边栏勾选 `use_rerank`，并设置 `rerank_model` / `rerank_device` / `rerank_top_n`。
 
 ## 检索评测
 
