@@ -1,4 +1,4 @@
-# Personal RAG
+﻿# Personal RAG
 
 一个简洁的个人 RAG 项目，支持文本与多模态检索。  
 核心技术栈：Python + Streamlit + FAISS + BM25 + OpenAI-compatible API。
@@ -76,16 +76,16 @@ streamlit run web/streamlit_app.py
 python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qrels data/eval/qrels_example.jsonl --backend all --ks 1,4 --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --vector-k 40 --bm25-k 40 --rrf-k 60
 ```
 
-### 最近一次实验结果（`queries.jsonl` / `qrels.jsonl`，`n_eval_queries=17`，`embed_backend=openai`）
+### 最近一次实验结果（`queries.jsonl` / `qrels.jsonl`，`n_eval_queries=29`，`embed_backend=openai`）
 
 | Backend | Rerank | Recall@1 | MRR@1 | Recall@4 | MRR@4 | Recall@10 | MRR@10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| vector | False | 0.3529 | 0.4706 | 0.7647 | 0.6029 | 0.9412 | 0.6245 |
-| bm25 | False | 0.5000 | 0.5882 | 0.8529 | 0.7206 | 0.9706 | 0.7324 |
-| hybrid | False | 0.5294 | 0.6471 | 0.9412 | 0.8137 | 0.9706 | 0.8137 |
-| vector | True | **0.7059** | **0.7647** | **0.9412** | **0.8824** | **1.0000** | **0.8824** |
-| bm25 | True | 0.6471 | 0.7059 | **0.9412** | 0.8529 | **1.0000** | 0.8529 |
-| hybrid | True | 0.6471 | 0.7059 | **0.9412** | 0.8529 | **1.0000** | 0.8529 |
+| vector | False | 0.3448 | 0.4828 | 0.7414 | 0.6178 | 0.8621 | 0.6305 |
+| bm25 | False | 0.3793 | 0.4828 | 0.7931 | 0.6580 | 0.9310 | 0.6693 |
+| hybrid | False | 0.4310 | 0.5517 | 0.8621 | 0.7471 | 0.9138 | 0.7510 |
+| vector | True | **0.5862** | **0.6897** | 0.8276 | **0.7989** | 0.9138 | **0.8046** |
+| bm25 | True | 0.5517 | 0.6552 | **0.8448** | 0.7816 | **0.9310** | 0.7885 |
+| hybrid | True | 0.5517 | 0.6552 | **0.8448** | 0.7816 | **0.9310** | 0.7885 |
 
 ## 如何人工构建评测集
 
@@ -101,4 +101,7 @@ python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qre
 
 - [queries_example.jsonl](/D:/personal_rag/data/eval/queries_example.jsonl)
 - [qrels_example.jsonl](/D:/personal_rag/data/eval/qrels_example.jsonl)
+
+
+The *_example files are generic templates and do not contain project-private data.
 
