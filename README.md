@@ -76,13 +76,16 @@ streamlit run web/streamlit_app.py
 python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qrels data/eval/qrels_example.jsonl --backend all --ks 1,4 --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --vector-k 40 --bm25-k 40 --rrf-k 60
 ```
 
-### 最近一次实验结果（基于我本地上传的论文）
+### 最近一次实验结果（`queries.jsonl` / `qrels.jsonl`，`n_eval_queries=17`，`embed_backend=openai`）
 
-| Backend | Recall@1 | MRR@1 | Recall@4 | MRR@4 |
-| --- | ---: | ---: | ---: | ---: |
-| vector | 0.0882 | 0.1176 | 0.1471 | 0.1373 |
-| bm25 | 0.4706 | 0.5294 | 0.9412 | 0.7010 |
-| hybrid | **0.5294** | **0.6471** | 0.9118 | **0.7794** |
+| Backend | Rerank | Recall@1 | MRR@1 | Recall@4 | MRR@4 | Recall@10 | MRR@10 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| vector | False | 0.3529 | 0.4706 | 0.7647 | 0.6029 | 0.9412 | 0.6245 |
+| bm25 | False | 0.5000 | 0.5882 | 0.8529 | 0.7206 | 0.9706 | 0.7324 |
+| hybrid | False | 0.5294 | 0.6471 | 0.9412 | 0.8137 | 0.9706 | 0.8137 |
+| vector | True | **0.7059** | **0.7647** | **0.9412** | **0.8824** | **1.0000** | **0.8824** |
+| bm25 | True | 0.6471 | 0.7059 | **0.9412** | 0.8529 | **1.0000** | 0.8529 |
+| hybrid | True | 0.6471 | 0.7059 | **0.9412** | 0.8529 | **1.0000** | 0.8529 |
 
 ## 如何人工构建评测集
 
