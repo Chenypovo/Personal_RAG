@@ -79,6 +79,8 @@ python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qre
 
 ### 最近一次实验结果（`queries.jsonl` / `qrels.jsonl`，`n_eval_queries=29`，`embed_backend=openai`）
 
+FAISS（baseline）：
+
 | Backend | Rerank | Recall@1 | MRR@1 | Recall@4 | MRR@4 | Recall@10 | MRR@10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | vector | False | 0.3448 | 0.4828 | 0.7414 | 0.6178 | 0.8621 | 0.6305 |
@@ -87,6 +89,28 @@ python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qre
 | vector | True | **0.5862** | **0.6897** | 0.8276 | **0.7989** | 0.9138 | **0.8046** |
 | bm25 | True | 0.5517 | 0.6552 | **0.8448** | 0.7816 | **0.9310** | 0.7885 |
 | hybrid | True | 0.5517 | 0.6552 | **0.8448** | 0.7816 | **0.9310** | 0.7885 |
+
+Elasticsearch（`--vector-backend elasticsearch`）：
+
+| Backend | Rerank | Recall@1 | MRR@1 | Recall@4 | MRR@4 | Recall@10 | MRR@10 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| vector | False | 0.3448 | 0.4828 | 0.7414 | 0.6178 | 0.8621 | 0.6305 |
+| bm25 | False | 0.3793 | 0.4828 | 0.7931 | 0.6580 | 0.9310 | 0.6693 |
+| hybrid | False | 0.4310 | 0.5517 | 0.8621 | 0.7471 | 0.9138 | 0.7510 |
+| vector | True | **0.5862** | **0.6897** | 0.8276 | **0.7989** | 0.9138 | **0.8046** |
+| bm25 | True | 0.5517 | 0.6552 | **0.8448** | 0.7816 | **0.9310** | 0.7885 |
+| hybrid | True | 0.5517 | 0.6552 | **0.8448** | 0.7816 | **0.9310** | 0.7885 |
+
+Elasticsearch vs FAISS 差值（ES - FAISS）：
+
+| Backend | Rerank | ΔRecall@1 | ΔMRR@1 | ΔRecall@4 | ΔMRR@4 | ΔRecall@10 | ΔMRR@10 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| vector | False | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| bm25 | False | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| hybrid | False | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| vector | True | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| bm25 | True | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| hybrid | True | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
 
 ## 如何人工构建评测集
 
