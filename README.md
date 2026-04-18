@@ -7,7 +7,7 @@
 
 - 文件输入：`txt / md / pdf / image / video`
 - 文本切块：`chunk_size=700`，`overlap=120`
-- 向量检索：FAISS
+- 向量检索：FAISS / Elasticsearch（可切换）
 - 关键词检索：BM25（`jieba` + regex 保护 token + CJK 2-gram fallback）
 - 混合检索：FAISS + BM25（RRF 融合）
 - 检索评测：`Recall@K`、`MRR@K`
