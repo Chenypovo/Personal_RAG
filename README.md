@@ -75,6 +75,7 @@ streamlit run web/streamlit_app.py
 ```bash
 python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qrels data/eval/qrels_example.jsonl --backend all --ks 1,4 --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --vector-k 40 --bm25-k 40 --rrf-k 60
 ```
+本地运行时请去掉`_example`字样并建议将文档发送给大模型(GPT, Gemini, Qwen等) 让其根据example以及个人文档生成jsonl文件并放入eval。
 
 ### 最近一次实验结果（`queries.jsonl` / `qrels.jsonl`，`n_eval_queries=29`，`embed_backend=openai`）
 
