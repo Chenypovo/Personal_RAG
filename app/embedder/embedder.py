@@ -54,6 +54,14 @@ def _empty_output(output_type: OutputType) -> BatchOutput:
     return torch.zeros((0, 0), dtype=torch.float32)
 
 
+def _l2_normalize_rows(vectors: np.ndarray, eps: float = 1e-12) -> np.ndarray:
+    if vectors.ndim != 2:
+        raise ValueError(f"Expected 2D vectors, got shape={vectors.shape}")
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    norms = np.maximum(norms, eps)
+    return (vectors / norms).astype(np.float32, copy=False)
+
+
 class OpenAICompatibleEmbedder:
     """Text embedding via OpenAI-compatible API."""
 
@@ -88,6 +96,7 @@ class OpenAICompatibleEmbedder:
             all_vecs.extend([item.embedding for item in resp.data])
 
         arr = np.asarray(all_vecs, dtype=np.float32)
+        arr = _l2_normalize_rows(arr)
         return _to_output(arr, output_type)
 
 

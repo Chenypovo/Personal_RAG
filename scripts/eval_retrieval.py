@@ -12,8 +12,20 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedder  # noqa: E402
+from app.reranker.bge_reranker import BGEReranker  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
+from app.vectordb.elasticsearch_store import ElasticsearchStore  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
+
+
+def _normalize_doc_id(doc_id: str) -> str:
+    d = (doc_id or "").strip()
+    if not d:
+        return d
+    d = d.replace("\\", "/")
+    while "//" in d:
+        d = d.replace("//", "/")
+    return d
 
 
 def _as_vector(v: Any) -> List[float]:
@@ -27,10 +39,24 @@ def _as_vector(v: Any) -> List[float]:
 def _doc_key(meta: Dict[str, Any], fallback_idx: int) -> str:
     doc_id = meta.get("doc_id")
     if isinstance(doc_id, str) and doc_id.strip():
-        return doc_id.strip()
+        return _normalize_doc_id(doc_id)
     source = str(meta.get("source", "unknown"))
     chunk_id = meta.get("chunk_id", fallback_idx)
-    return f"{source}#{chunk_id}"
+    return _normalize_doc_id(f"{source}#{chunk_id}")
+
+
+def _load_vector_store(args: argparse.Namespace) -> Any:
+    if args.vector_backend == "elasticsearch":
+        return ElasticsearchStore.connect(
+            url=args.es_url,
+            index_name=args.es_index,
+            username=args.es_username,
+            password=args.es_password,
+            api_key=args.es_api_key,
+            verify_certs=not args.es_no_verify_certs,
+            request_timeout=int(args.es_request_timeout),
+        )
+    return FaissStore.load(args.index_path, args.meta_path)
 
 
 def _parse_ks(ks: str) -> List[int]:
@@ -95,13 +121,13 @@ def _load_queries(path: str) -> List[QueryItem]:
 def _qrel_to_doc_id(row: Dict[str, Any], i: int) -> str:
     doc_id = str(row.get("doc_id", "")).strip()
     if doc_id:
-        return doc_id
+        return _normalize_doc_id(doc_id)
 
     source = str(row.get("source", "")).strip()
     if not source:
         raise ValueError(f"qrels line {i}: missing doc_id or source")
     chunk_id = row.get("chunk_id", 0)
-    return f"{source}#{chunk_id}"
+    return _normalize_doc_id(f"{source}#{chunk_id}")
 
 
 def _load_qrels(path: str) -> Dict[str, Set[str]]:
@@ -146,16 +172,19 @@ def _mean(xs: Iterable[float]) -> float:
 
 def _retrieve_vector(
     *,
-    store: FaissStore,
+    store: Any,
+    vector_backend: str,
     embed_backend: str,
     embedder_openai: Optional[OpenAICompatibleEmbedder],
     embedder_clip: Optional[CLIPMultimodalEmbedder],
     query: str,
     query_image: str,
     top_k: int,
+    output_k: Optional[int],
     candidate_k: int,
     max_distance: float,
     strict: bool,
+    es_num_candidates: int,
 ) -> List[Dict[str, Any]]:
     if embed_backend == "openai":
         if not query:
@@ -173,18 +202,31 @@ def _retrieve_vector(
         else:
             return []
 
-    candidates = store.search(query_vector=qv, top_k=max(top_k, candidate_k))
-    filtered: List[Dict[str, Any]] = []
-    for item in candidates:
-        d = item.get("distance")
-        if isinstance(d, (int, float)) and d <= max_distance:
-            filtered.append(item)
+    recall_k = max(top_k, candidate_k)
+    if vector_backend == "elasticsearch":
+        candidates = store.search(
+            query_vector=qv,
+            top_k=recall_k,
+            num_candidates=max(int(es_num_candidates), recall_k),
+        )
+    else:
+        candidates = store.search(query_vector=qv, top_k=recall_k)
 
+    filtered: List[Dict[str, Any]] = []
+    if vector_backend == "faiss":
+        for item in candidates:
+            d = item.get("distance")
+            if isinstance(d, (int, float)) and d <= max_distance:
+                filtered.append(item)
+    else:
+        filtered = candidates[:]
+
+    limit = output_k if output_k is not None else top_k
     if filtered:
-        return filtered[:top_k]
+        return filtered[:limit]
     if strict:
         return []
-    return candidates[:top_k]
+    return candidates[:limit]
 
 
 def _retrieve_bm25(
@@ -192,15 +234,18 @@ def _retrieve_bm25(
     bm25: BM25Store,
     query: str,
     top_k: int,
+    output_k: Optional[int],
 ) -> List[Dict[str, Any]]:
     if not query:
         return []
-    return bm25.search(query=query, top_k=top_k)
+    limit = output_k if output_k is not None else top_k
+    return bm25.search(query=query, top_k=limit)
 
 
 def _retrieve_hybrid(
     *,
-    store: FaissStore,
+    store: Any,
+    vector_backend: str,
     bm25: BM25Store,
     embed_backend: str,
     embedder_openai: Optional[OpenAICompatibleEmbedder],
@@ -208,26 +253,31 @@ def _retrieve_hybrid(
     query: str,
     query_image: str,
     top_k: int,
+    output_k: Optional[int],
     candidate_k: int,
     max_distance: float,
     strict: bool,
     vector_k: int,
     bm25_k: int,
     rrf_k: int,
+    es_num_candidates: int,
 ) -> List[Dict[str, Any]]:
     if query_image and not query:
         # image-only query fallback to vector
         return _retrieve_vector(
             store=store,
+            vector_backend=vector_backend,
             embed_backend=embed_backend,
             embedder_openai=embedder_openai,
             embedder_clip=embedder_clip,
             query=query,
             query_image=query_image,
             top_k=top_k,
+            output_k=output_k,
             candidate_k=candidate_k,
             max_distance=max_distance,
             strict=strict,
+            es_num_candidates=es_num_candidates,
         )
 
     if not query:
@@ -235,20 +285,24 @@ def _retrieve_hybrid(
 
     vec_items = _retrieve_vector(
         store=store,
+        vector_backend=vector_backend,
         embed_backend=embed_backend,
         embedder_openai=embedder_openai,
         embedder_clip=embedder_clip,
         query=query,
         query_image="",
         top_k=max(top_k, vector_k),
+        output_k=max(output_k or top_k, vector_k),
         candidate_k=max(candidate_k, vector_k),
         max_distance=max_distance,
         strict=strict,
+        es_num_candidates=es_num_candidates,
     )
     bm25_items = _retrieve_bm25(
         bm25=bm25,
         query=query,
         top_k=max(top_k, bm25_k),
+        output_k=max(output_k or top_k, bm25_k),
     )
 
     fused_scores: Dict[str, float] = {}
@@ -274,11 +328,30 @@ def _retrieve_hybrid(
 
     ranked = sorted(fused_scores.keys(), key=lambda k: fused_scores[k], reverse=True)
     out: List[Dict[str, Any]] = []
-    for key in ranked[:top_k]:
+    limit = output_k if output_k is not None else top_k
+    for key in ranked[:limit]:
         item = dict(best_item[key])
         item["hybrid_score"] = float(fused_scores[key])
         out.append(item)
     return out
+
+
+def _rerank_items(
+    *,
+    items: List[Dict[str, Any]],
+    query: str,
+    use_rerank: bool,
+    reranker: Optional[BGEReranker],
+    final_top_k: int,
+) -> List[Dict[str, Any]]:
+    if not items:
+        return []
+    if not use_rerank or reranker is None:
+        return items[:final_top_k]
+    if not query:
+        return items[:final_top_k]
+    reranked = reranker.rerank(query=query, retrieved=items, top_k=final_top_k)
+    return reranked[:final_top_k]
 
 
 def _extract_doc_ids(items: List[Dict[str, Any]]) -> List[str]:
@@ -296,8 +369,9 @@ def _evaluate_backend(
     queries: List[QueryItem],
     qrels: Dict[str, Set[str]],
     ks: List[int],
-    store: Optional[FaissStore],
+    store: Optional[Any],
     bm25: Optional[BM25Store],
+    vector_backend: str,
     embed_backend: str,
     embedder_openai: Optional[OpenAICompatibleEmbedder],
     embedder_clip: Optional[CLIPMultimodalEmbedder],
@@ -308,6 +382,10 @@ def _evaluate_backend(
     vector_k: int,
     bm25_k: int,
     rrf_k: int,
+    es_num_candidates: int,
+    use_rerank: bool,
+    reranker: Optional[BGEReranker],
+    rerank_top_n: int,
 ) -> Dict[str, Any]:
     recalls: Dict[int, List[float]] = {k: [] for k in ks}
     mrrs: Dict[int, List[float]] = {k: [] for k in ks}
@@ -322,18 +400,21 @@ def _evaluate_backend(
 
         if backend == "vector":
             if store is None:
-                raise RuntimeError("FAISS store not initialized")
+                raise RuntimeError("Vector store not initialized")
             items = _retrieve_vector(
                 store=store,
+                vector_backend=vector_backend,
                 embed_backend=embed_backend,
                 embedder_openai=embedder_openai,
                 embedder_clip=embedder_clip,
                 query=q.query,
                 query_image=q.query_image,
                 top_k=top_k_max,
+                output_k=max(top_k_max, rerank_top_n) if use_rerank else top_k_max,
                 candidate_k=candidate_k,
                 max_distance=max_distance,
                 strict=strict,
+                es_num_candidates=es_num_candidates,
             )
         elif backend == "bm25":
             if bm25 is None:
@@ -342,12 +423,14 @@ def _evaluate_backend(
                 bm25=bm25,
                 query=q.query,
                 top_k=top_k_max,
+                output_k=max(top_k_max, rerank_top_n) if use_rerank else top_k_max,
             )
         elif backend == "hybrid":
             if store is None or bm25 is None:
-                raise RuntimeError("FAISS/BM25 store not initialized")
+                raise RuntimeError("Vector/BM25 store not initialized")
             items = _retrieve_hybrid(
                 store=store,
+                vector_backend=vector_backend,
                 bm25=bm25,
                 embed_backend=embed_backend,
                 embedder_openai=embedder_openai,
@@ -355,15 +438,25 @@ def _evaluate_backend(
                 query=q.query,
                 query_image=q.query_image,
                 top_k=top_k_max,
+                output_k=max(top_k_max, rerank_top_n) if use_rerank else top_k_max,
                 candidate_k=candidate_k,
                 max_distance=max_distance,
                 strict=strict,
                 vector_k=vector_k,
                 bm25_k=bm25_k,
                 rrf_k=rrf_k,
+                es_num_candidates=es_num_candidates,
             )
         else:
             raise ValueError(f"Unsupported backend: {backend}")
+
+        items = _rerank_items(
+            items=items,
+            query=q.query,
+            use_rerank=use_rerank,
+            reranker=reranker,
+            final_top_k=top_k_max,
+        )
 
         pred = _extract_doc_ids(items)
         row: Dict[str, Any] = {"query_id": q.query_id, "pred_doc_ids": pred}
@@ -378,6 +471,7 @@ def _evaluate_backend(
 
     summary = {
         "backend": backend,
+        "use_rerank": use_rerank,
         "n_queries": len(queries),
         "n_eval_queries": len(per_query),
         "n_skipped_no_qrels": skipped_no_qrels,
@@ -397,8 +491,23 @@ def main() -> None:
     parser.add_argument("--backend", type=str, default="all", choices=["vector", "bm25", "hybrid", "all"])
     parser.add_argument("--ks", type=str, default="1,4,10", help="comma-separated K values")
 
+    parser.add_argument(
+        "--vector-backend",
+        type=str,
+        default="faiss",
+        choices=["faiss", "elasticsearch"],
+        help="Vector store backend used by vector/hybrid backends",
+    )
     parser.add_argument("--index-path", type=str, default="data/index/faiss.index")
     parser.add_argument("--meta-path", type=str, default="data/index/metadatas.json")
+    parser.add_argument("--es-url", type=str, default="http://localhost:9200")
+    parser.add_argument("--es-index", type=str, default="personal_rag")
+    parser.add_argument("--es-username", type=str, default="")
+    parser.add_argument("--es-password", type=str, default="")
+    parser.add_argument("--es-api-key", type=str, default="")
+    parser.add_argument("--es-request-timeout", type=int, default=30)
+    parser.add_argument("--es-num-candidates", type=int, default=100, help="ES knn num_candidates")
+    parser.add_argument("--es-no-verify-certs", action="store_true", help="Disable TLS cert verification for ES client")
     parser.add_argument("--bm25-path", type=str, default="data/index/bm25.json")
 
     parser.add_argument("--embed-backend", type=str, default="openai", choices=["openai", "clip"])
@@ -415,6 +524,12 @@ def main() -> None:
     parser.add_argument("--bm25-k", type=int, default=40, help="hybrid bm25 branch recall size")
     parser.add_argument("--rrf-k", type=int, default=60, help="hybrid RRF constant")
     parser.add_argument("--jieba-user-dict", action="append", default=[])
+    parser.add_argument("--use-rerank", action="store_true", help="Apply BGE reranker after retrieval")
+    parser.add_argument("--rerank-model", type=str, default="BAAI/bge-reranker-base")
+    parser.add_argument("--rerank-device", type=str, default="", help='e.g. "cpu" or "cuda"')
+    parser.add_argument("--rerank-batch-size", type=int, default=16)
+    parser.add_argument("--rerank-top-n", type=int, default=40, help="Candidate size before rerank")
+    parser.add_argument("--compare-rerank", action="store_true", help="Run both without and with rerank")
 
     parser.add_argument("--output-json", type=str, default="", help="optional output json report path")
     args = parser.parse_args()
@@ -426,11 +541,11 @@ def main() -> None:
 
     backends = ["vector", "bm25", "hybrid"] if args.backend == "all" else [args.backend]
 
-    need_faiss = any(b in ("vector", "hybrid") for b in backends)
+    need_vector = any(b in ("vector", "hybrid") for b in backends)
     need_bm25 = any(b in ("bm25", "hybrid") for b in backends)
     need_embed = any(b in ("vector", "hybrid") for b in backends)
 
-    store = FaissStore.load(args.index_path, args.meta_path) if need_faiss else None
+    store = _load_vector_store(args) if need_vector else None
     bm25 = BM25Store.load(args.bm25_path, user_dict_paths=args.jieba_user_dict) if need_bm25 else None
 
     embedder_openai = None
@@ -445,36 +560,54 @@ def main() -> None:
                 batch_size=args.clip_batch_size,
             )
 
+    rerank_modes = [False, True] if args.compare_rerank else [bool(args.use_rerank)]
     reports: List[Dict[str, Any]] = []
-    for backend in backends:
-        report = _evaluate_backend(
-            backend=backend,
-            queries=queries,
-            qrels=qrels,
-            ks=ks,
-            store=store,
-            bm25=bm25,
-            embed_backend=args.embed_backend,
-            embedder_openai=embedder_openai,
-            embedder_clip=embedder_clip,
-            top_k_max=top_k_max,
-            candidate_k=args.candidate_k,
-            max_distance=args.max_distance,
-            strict=args.strict,
-            vector_k=args.vector_k,
-            bm25_k=args.bm25_k,
-            rrf_k=args.rrf_k,
-        )
-        reports.append(report)
+    for rerank_on in rerank_modes:
+        reranker: Optional[BGEReranker] = None
+        if rerank_on:
+            reranker = BGEReranker(
+                model_name=args.rerank_model,
+                device=args.rerank_device or None,
+                batch_size=args.rerank_batch_size,
+            )
+        for backend in backends:
+            report = _evaluate_backend(
+                backend=backend,
+                queries=queries,
+                qrels=qrels,
+                ks=ks,
+                store=store,
+                bm25=bm25,
+                vector_backend=args.vector_backend,
+                embed_backend=args.embed_backend,
+                embedder_openai=embedder_openai,
+                embedder_clip=embedder_clip,
+                top_k_max=top_k_max,
+                candidate_k=args.candidate_k,
+                max_distance=args.max_distance,
+                strict=args.strict,
+                vector_k=args.vector_k,
+                bm25_k=args.bm25_k,
+                rrf_k=args.rrf_k,
+                es_num_candidates=args.es_num_candidates,
+                use_rerank=rerank_on,
+                reranker=reranker,
+                rerank_top_n=args.rerank_top_n,
+            )
+            reports.append(report)
 
     print("\n=== Retrieval Eval ===")
     print(f"queries={args.queries}")
     print(f"qrels={args.qrels}")
     print(f"ks={ks}")
     print(f"embed_backend={args.embed_backend}")
+    print(f"vector_backend={args.vector_backend}")
     print("")
     for rep in reports:
-        print(f"[backend={rep['backend']}] n_eval_queries={rep['n_eval_queries']} / {rep['n_queries']}")
+        print(
+            f"[backend={rep['backend']}, rerank={rep['use_rerank']}] "
+            f"n_eval_queries={rep['n_eval_queries']} / {rep['n_queries']}"
+        )
         metrics = rep["metrics"]
         for k in ks:
             print(
@@ -489,6 +622,8 @@ def main() -> None:
             "qrels": args.qrels,
             "ks": ks,
             "backend": args.backend,
+            "vector_backend": args.vector_backend,
+            "compare_rerank": bool(args.compare_rerank),
             "reports": reports,
         }
         out = Path(args.output_json)

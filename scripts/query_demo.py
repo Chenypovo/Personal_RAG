@@ -12,6 +12,7 @@ from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedd
 from app.generator.generator import OpenAICompatibleGenerator  # noqa: E402
 from app.reranker.bge_reranker import BGEReranker  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
+from app.vectordb.elasticsearch_store import ElasticsearchStore  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
 
 
@@ -48,6 +49,20 @@ def _doc_key(meta: Dict[str, Any], fallback_idx: int) -> str:
     return f"{source}#{chunk_id}"
 
 
+def _load_vector_store(args: argparse.Namespace) -> Any:
+    if args.vector_backend == "elasticsearch":
+        return ElasticsearchStore.connect(
+            url=args.es_url,
+            index_name=args.es_index,
+            username=args.es_username,
+            password=args.es_password,
+            api_key=args.es_api_key,
+            verify_certs=not args.es_no_verify_certs,
+            request_timeout=int(args.es_request_timeout),
+        )
+    return FaissStore.load(index_path=args.index_path, meta_path=args.meta_path)
+
+
 def _retrieve_vector(
     args: argparse.Namespace,
     query_text: str,
@@ -59,7 +74,7 @@ def _retrieve_vector(
     if args.embed_backend == "clip" and not query_text and not query_image:
         raise ValueError("clip backend requires --query or --query-image")
 
-    store = FaissStore.load(index_path=args.index_path, meta_path=args.meta_path)
+    store = _load_vector_store(args)
 
     if args.embed_backend == "openai":
         embedder = OpenAICompatibleEmbedder()
@@ -77,12 +92,25 @@ def _retrieve_vector(
         else:
             query_vector = _as_vector(clip_embedder.embed_text(query_text, output_type="list"))
 
-    candidates = store.search(query_vector=query_vector, top_k=max(args.top_k, args.candidate_k))
+    recall_k = max(args.top_k, args.candidate_k)
+    if args.vector_backend == "elasticsearch":
+        candidates = store.search(
+            query_vector=query_vector,
+            top_k=recall_k,
+            num_candidates=max(int(args.es_num_candidates), recall_k),
+        )
+    else:
+        candidates = store.search(query_vector=query_vector, top_k=recall_k)
+
     filtered: List[Dict[str, Any]] = []
-    for item in candidates:
-        d = item.get("distance")
-        if isinstance(d, (int, float)) and d <= args.max_distance:
-            filtered.append(item)
+    if args.vector_backend == "faiss":
+        for item in candidates:
+            d = item.get("distance")
+            if isinstance(d, (int, float)) and d <= args.max_distance:
+                filtered.append(item)
+    else:
+        # ES score is already similarity-ranked; skip FAISS distance threshold logic.
+        filtered = candidates[:]
 
     limit = output_k if output_k is not None else args.top_k
 
@@ -202,8 +230,23 @@ def main() -> None:
     parser.add_argument("--max-distance", type=float, default=0.8, help="Keep results with distance <= threshold (vector only)")
     parser.add_argument("--strict", dest="strict", action="store_true", default=True, help="Strict mode (default: on)")
     parser.add_argument("--no-strict", dest="strict", action="store_false", help="Backfill nearest items when none pass threshold")
+    parser.add_argument(
+        "--vector-backend",
+        type=str,
+        default="faiss",
+        choices=["faiss", "elasticsearch"],
+        help="Vector store backend used by retrieval-backend=vector/hybrid",
+    )
     parser.add_argument("--index-path", type=str, default="data/index/faiss.index")
     parser.add_argument("--meta-path", type=str, default="data/index/metadatas.json")
+    parser.add_argument("--es-url", type=str, default="http://localhost:9200")
+    parser.add_argument("--es-index", type=str, default="personal_rag")
+    parser.add_argument("--es-username", type=str, default="")
+    parser.add_argument("--es-password", type=str, default="")
+    parser.add_argument("--es-api-key", type=str, default="")
+    parser.add_argument("--es-request-timeout", type=int, default=30)
+    parser.add_argument("--es-num-candidates", type=int, default=100, help="ES knn num_candidates")
+    parser.add_argument("--es-no-verify-certs", action="store_true", help="Disable TLS cert verification for ES client")
     parser.add_argument("--bm25-path", type=str, default="data/index/bm25.json")
     parser.add_argument("--no-retrieval", action="store_true", help="Disable retrieval and do direct generation")
     parser.add_argument("--show-chunks", action="store_true", help="Print retrieved chunk texts")
@@ -218,7 +261,7 @@ def main() -> None:
         type=str,
         default="vector",
         choices=["vector", "bm25", "hybrid"],
-        help="vector: faiss retrieval; bm25: lexical retrieval; hybrid: vector + bm25 (RRF)",
+        help="vector: vector-store retrieval; bm25: lexical retrieval; hybrid: vector + bm25 (RRF)",
     )
     parser.add_argument(
         "--embed-backend",
