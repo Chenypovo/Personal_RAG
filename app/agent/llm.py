@@ -37,9 +37,9 @@ def make_complete_fn(model: Optional[str] = None, temperature: float = 0.1) -> C
 
 def make_embed_fn() -> Callable[[str], List[float]]:
     """Build a text -> embedding vector function from the configured embedder."""
-    from app.embedder.embedder import OpenAICompatibleEmbedder
+    from app.embedder.embedder import build_text_embedder
 
-    embedder = OpenAICompatibleEmbedder()
+    embedder = build_text_embedder()
 
     def embed(text: str) -> List[float]:
         vec = embedder.embed_text(text or " ", output_type="list")

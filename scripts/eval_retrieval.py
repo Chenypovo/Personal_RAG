@@ -4,14 +4,14 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedder  # noqa: E402
+from app.embedder.embedder import CLIPMultimodalEmbedder, LocalTextEmbedder, OpenAICompatibleEmbedder, build_text_embedder  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
 
@@ -148,7 +148,7 @@ def _retrieve_vector(
     *,
     store: FaissStore,
     embed_backend: str,
-    embedder_openai: Optional[OpenAICompatibleEmbedder],
+    embedder_openai: Optional[Union[OpenAICompatibleEmbedder, LocalTextEmbedder]],
     embedder_clip: Optional[CLIPMultimodalEmbedder],
     query: str,
     query_image: str,
@@ -157,11 +157,11 @@ def _retrieve_vector(
     max_distance: float,
     strict: bool,
 ) -> List[Dict[str, Any]]:
-    if embed_backend == "openai":
+    if embed_backend in {"openai", "local"}:
         if not query:
             return []
         if embedder_openai is None:
-            raise RuntimeError("OpenAI embedder is not initialized")
+            raise RuntimeError("Text embedder is not initialized")
         qv = _as_vector(embedder_openai.embed_text(query, output_type="list"))
     else:
         if embedder_clip is None:
@@ -203,7 +203,7 @@ def _retrieve_hybrid(
     store: FaissStore,
     bm25: BM25Store,
     embed_backend: str,
-    embedder_openai: Optional[OpenAICompatibleEmbedder],
+    embedder_openai: Optional[Union[OpenAICompatibleEmbedder, LocalTextEmbedder]],
     embedder_clip: Optional[CLIPMultimodalEmbedder],
     query: str,
     query_image: str,
@@ -299,7 +299,7 @@ def _evaluate_backend(
     store: Optional[FaissStore],
     bm25: Optional[BM25Store],
     embed_backend: str,
-    embedder_openai: Optional[OpenAICompatibleEmbedder],
+    embedder_openai: Optional[Union[OpenAICompatibleEmbedder, LocalTextEmbedder]],
     embedder_clip: Optional[CLIPMultimodalEmbedder],
     top_k_max: int,
     candidate_k: int,
@@ -401,7 +401,7 @@ def main() -> None:
     parser.add_argument("--meta-path", type=str, default="data/index/metadatas.json")
     parser.add_argument("--bm25-path", type=str, default="data/index/bm25.json")
 
-    parser.add_argument("--embed-backend", type=str, default="openai", choices=["openai", "clip"])
+    parser.add_argument("--embed-backend", type=str, default="openai", choices=["openai", "local", "clip"])
     parser.add_argument("--clip-model-name", type=str, default="openai/clip-vit-base-patch32")
     parser.add_argument("--clip-device", type=str, default="cpu")
     parser.add_argument("--clip-batch-size", type=int, default=32)
@@ -433,11 +433,13 @@ def main() -> None:
     store = FaissStore.load(args.index_path, args.meta_path) if need_faiss else None
     bm25 = BM25Store.load(args.bm25_path, user_dict_paths=args.jieba_user_dict) if need_bm25 else None
 
-    embedder_openai = None
+    embedder_openai: Optional[Union[OpenAICompatibleEmbedder, LocalTextEmbedder]] = None
     embedder_clip = None
     if need_embed:
-        if args.embed_backend == "openai":
-            embedder_openai = OpenAICompatibleEmbedder()
+        if args.embed_backend in {"openai", "local"}:
+            embedder_openai = build_text_embedder(
+                provider="openai_compatible" if args.embed_backend == "openai" else "local"
+            )
         else:
             embedder_clip = CLIPMultimodalEmbedder(
                 model_name=args.clip_model_name,

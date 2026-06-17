@@ -4,10 +4,12 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .DS_Store
+.venv/
 
 # runtime artifacts
 data/index/
 data/frames/
+data/memory/
 data/uploads/*.pdf
 data/eval/*.jsonl
 !data/eval/*_example.jsonl

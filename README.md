@@ -1,7 +1,7 @@
 # Personal RAG
 
-一个简洁的个人 RAG 项目，支持文本与多模态检索。  
-核心技术栈：Python + Streamlit + FAISS + BM25 + OpenAI-compatible API。
+一个简洁的个人 RAG 项目，支持文本与多模态检索，以及带长期记忆的对话。  
+核心技术栈：Python + Streamlit + FAISS + BM25 + OpenAI-compatible API / 本地 Hugging Face embedding。
 
 ## 功能
 
@@ -10,6 +10,9 @@
 - 向量检索：FAISS
 - 关键词检索：BM25（`jieba` + regex 保护 token + CJK 2-gram fallback）
 - 混合检索：FAISS + BM25（RRF 融合）
+- 图片 OCR：`rapidocr` 可选注入，缺失时自动降级
+- Reranker：`BGE reranker` 可选开启，`torch/transformers` 懒加载
+- 长期记忆评测：`Recall@K`、`MRR@K`
 - 检索评测：`Recall@K`、`MRR@K`
 
 ## 安装
@@ -25,6 +28,19 @@ cp .env.example .env
 ```
 
 ## 建库与查询
+
+`.env` 支持两种文本 embedding：
+
+```bash
+# 远端 OpenAI-compatible
+EMBED_PROVIDER=openai_compatible
+EMBED_MODEL=embedding-3
+
+# 本地 Hugging Face
+# EMBED_PROVIDER=local
+# EMBED_MODEL=BAAI/bge-small-zh-v1.5
+# EMBED_DEVICE=cpu
+```
 
 建库（同时生成 FAISS + BM25）：
 
@@ -44,6 +60,12 @@ python scripts/query_demo.py --retrieval-backend vector --embed-backend openai -
 python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 4 --vector-k 40 --bm25-k 40 --rrf-k 60 --show-chunks
 ```
 
+混合检索后再精排：
+
+```bash
+python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 8 --rerank --rerank-top-k 4 --show-chunks
+```
+
 网页端：
 
 ```bash
@@ -60,6 +82,12 @@ streamlit run web/streamlit_app.py
 
 ```bash
 python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qrels data/eval/qrels_example.jsonl --backend all --ks 1,4 --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --vector-k 40 --bm25-k 40 --rrf-k 60
+```
+
+记忆评测示例：
+
+```bash
+python scripts/eval_memory.py --facts data/eval/memory_facts_example.jsonl --queries data/eval/memory_queries_example.jsonl --qrels data/eval/memory_qrels_example.jsonl --ks 1,3,5
 ```
 
 ### 最近一次实验结果（基于我本地上传的论文）
@@ -84,4 +112,3 @@ python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qre
 
 - [queries_example.jsonl](/D:/personal_rag/data/eval/queries_example.jsonl)
 - [qrels_example.jsonl](/D:/personal_rag/data/eval/qrels_example.jsonl)
-

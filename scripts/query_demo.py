@@ -8,8 +8,9 @@ PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedder  # noqa: E402
+from app.embedder.embedder import CLIPMultimodalEmbedder, build_text_embedder  # noqa: E402
 from app.generator.generator import OpenAICompatibleGenerator  # noqa: E402
+from app.reranker.bge_reranker import BGEReranker  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
 
@@ -48,15 +49,17 @@ def _doc_key(meta: Dict[str, Any], fallback_idx: int) -> str:
 
 
 def _retrieve_vector(args: argparse.Namespace, query_text: str, query_image: str) -> Tuple[List[Dict[str, Any]], str]:
-    if args.embed_backend == "openai" and not query_text:
-        raise ValueError("openai backend requires --query")
+    if args.embed_backend in {"openai", "local"} and not query_text:
+        raise ValueError(f"{args.embed_backend} backend requires --query")
     if args.embed_backend == "clip" and not query_text and not query_image:
         raise ValueError("clip backend requires --query or --query-image")
 
     store = FaissStore.load(index_path=args.index_path, meta_path=args.meta_path)
 
-    if args.embed_backend == "openai":
-        embedder = OpenAICompatibleEmbedder()
+    if args.embed_backend in {"openai", "local"}:
+        embedder = build_text_embedder(
+            provider="openai_compatible" if args.embed_backend == "openai" else "local"
+        )
         query_vector = _as_vector(embedder.embed_text(query_text, output_type="list"))
     else:
         clip_embedder = CLIPMultimodalEmbedder(
@@ -179,8 +182,8 @@ def main() -> None:
         "--embed-backend",
         type=str,
         default="openai",
-        choices=["openai", "clip"],
-        help="openai: text query only; clip: text/image query (vector retrieval only)",
+        choices=["openai", "local", "clip"],
+        help="openai/local: text query; clip: text/image query (vector retrieval only)",
     )
     parser.add_argument("--clip-model-name", type=str, default="openai/clip-vit-base-patch32")
     parser.add_argument("--clip-device", type=str, default="cpu")
@@ -188,6 +191,11 @@ def main() -> None:
     parser.add_argument("--vector-k", type=int, default=20, help="Hybrid: vector branch recall size")
     parser.add_argument("--bm25-k", type=int, default=20, help="Hybrid: bm25 branch recall size")
     parser.add_argument("--rrf-k", type=int, default=60, help="Hybrid: RRF constant (larger = flatter)")
+    parser.add_argument("--rerank", action="store_true", help="Apply BGE reranker on retrieved candidates")
+    parser.add_argument("--rerank-top-k", type=int, default=4, help="Top-k after reranking")
+    parser.add_argument("--rerank-model-name", type=str, default="BAAI/bge-reranker-base")
+    parser.add_argument("--rerank-device", type=str, default="")
+    parser.add_argument("--rerank-batch-size", type=int, default=16)
     parser.add_argument(
         "--jieba-user-dict",
         action="append",
@@ -211,6 +219,14 @@ def main() -> None:
         retrieved, query_text = _retrieve_hybrid(args, query_text, query_image)
     else:
         retrieved, query_text = _retrieve_vector(args, query_text, query_image)
+
+    if args.rerank and retrieved and query_text:
+        reranker = BGEReranker(
+            model_name=args.rerank_model_name,
+            device=args.rerank_device or None,
+            batch_size=args.rerank_batch_size,
+        )
+        retrieved = reranker.rerank(query=query_text, retrieved=retrieved, top_k=args.rerank_top_k)
 
     if not retrieved and not args.no_retrieval:
         print("\n=== Answer ===")

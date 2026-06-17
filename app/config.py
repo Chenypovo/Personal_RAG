@@ -18,6 +18,9 @@ class Settings:
     embed_provider: str
     llm_model: str
     embed_model: str
+    embed_device: str
+    local_embed_normalize: bool
+    local_embed_trust_remote_code: bool
     openai_compatible_api_key: str
     openai_compatible_base_url: str
 
@@ -32,6 +35,10 @@ def get_settings() -> Settings:
         embed_provider=_getenv("EMBED_PROVIDER", "openai_compatible"),
         llm_model=_getenv("LLM_MODEL", "glm-4-flash"),
         embed_model=_getenv("EMBED_MODEL", "embedding-3"),
+        embed_device=_getenv("EMBED_DEVICE", "cpu"),
+        local_embed_normalize=_getenv("LOCAL_EMBED_NORMALIZE", "true").lower() not in {"0", "false", "no"},
+        local_embed_trust_remote_code=_getenv("LOCAL_EMBED_TRUST_REMOTE_CODE", "false").lower()
+        in {"1", "true", "yes"},
         openai_compatible_api_key=_getenv("OPENAI_COMPAT_API_KEY"),
         openai_compatible_base_url=_getenv("OPENAI_COMPAT_BASE_URL"),
     )

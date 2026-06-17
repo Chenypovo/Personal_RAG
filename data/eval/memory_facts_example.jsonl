@@ -1,0 +1,3 @@
+{"fact_id":"fact_guitar","fact_object":"guitar","fact_content":"I am learning guitar on weekends.","source":"chat"}
+{"fact_id":"fact_ntu","fact_object":"school","fact_content":"I study AI at Nanyang Technological University.","source":"chat"}
+{"fact_id":"fact_project","fact_object":"project","fact_content":"I am building a long-term-memory RAG project.","source":"chat"}

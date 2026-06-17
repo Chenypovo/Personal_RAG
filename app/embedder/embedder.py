@@ -7,17 +7,43 @@ import warnings
 
 import numpy as np
 from openai import OpenAI
-from PIL import Image, UnidentifiedImageError
-import torch
-import torch.nn.functional as F
-from transformers import AutoTokenizer, CLIPModel, CLIPProcessor
 
 from app.config import get_provider_config, get_settings
 
 
 OutputType = Literal["list", "numpy", "tensor"]
-BatchOutput = Union[List[List[float]], np.ndarray, torch.Tensor]
-VectorOutput = Union[List[float], np.ndarray, torch.Tensor]
+BatchOutput = Union[List[List[float]], np.ndarray, Any]
+VectorOutput = Union[List[float], np.ndarray, Any]
+
+
+def _import_torch() -> Any:
+    import torch
+
+    return torch
+
+
+def _import_torch_functional() -> Any:
+    import torch.nn.functional as F
+
+    return F
+
+
+def _import_clip_stack() -> tuple[Any, Any, Any]:
+    from transformers import AutoTokenizer, CLIPModel, CLIPProcessor
+
+    return AutoTokenizer, CLIPModel, CLIPProcessor
+
+
+def _import_hf_text_stack() -> tuple[Any, Any]:
+    from transformers import AutoModel, AutoTokenizer
+
+    return AutoModel, AutoTokenizer
+
+
+def _import_pil() -> tuple[Any, Any]:
+    from PIL import Image, UnidentifiedImageError
+
+    return Image, UnidentifiedImageError
 
 
 def _validate_texts(texts: Sequence[str]) -> List[str]:
@@ -42,6 +68,7 @@ def _to_output(vectors: np.ndarray, output_type: OutputType) -> BatchOutput:
     if output_type == "numpy":
         return vectors
     if output_type == "tensor":
+        torch = _import_torch()
         return torch.from_numpy(vectors)
     raise ValueError(f"Unsupported output_type: {output_type}")
 
@@ -51,6 +78,7 @@ def _empty_output(output_type: OutputType) -> BatchOutput:
         return []
     if output_type == "numpy":
         return np.zeros((0, 0), dtype=np.float32)
+    torch = _import_torch()
     return torch.zeros((0, 0), dtype=torch.float32)
 
 
@@ -91,6 +119,106 @@ class OpenAICompatibleEmbedder:
         return _to_output(arr, output_type)
 
 
+class LocalTextEmbedder:
+    """Local Hugging Face text embedder with mean pooling."""
+
+    def __init__(
+        self,
+        model_name: Optional[str] = None,
+        device: Optional[str] = None,
+        batch_size: int = 32,
+        normalize: Optional[bool] = None,
+        trust_remote_code: Optional[bool] = None,
+    ) -> None:
+        if batch_size <= 0:
+            raise ValueError("batch_size must be > 0")
+
+        settings = get_settings()
+        AutoModel, AutoTokenizer = _import_hf_text_stack()
+        torch = _import_torch()
+
+        self.model_name = model_name or settings.embed_model
+        self.batch_size = batch_size
+        self.normalize = settings.local_embed_normalize if normalize is None else normalize
+        self.trust_remote_code = (
+            settings.local_embed_trust_remote_code if trust_remote_code is None else trust_remote_code
+        )
+        self.device = self._resolve_device(device or settings.embed_device, torch)
+
+        self.tokenizer: Any = AutoTokenizer.from_pretrained(
+            self.model_name,
+            trust_remote_code=self.trust_remote_code,
+        )
+        self.model: Any = AutoModel.from_pretrained(
+            self.model_name,
+            trust_remote_code=self.trust_remote_code,
+        )
+        self.model.to(self.device)
+        self.model.eval()
+
+    @staticmethod
+    def _resolve_device(device: str, torch: Any) -> str:
+        d = (device or "cpu").strip().lower()
+        if d == "cpu":
+            return "cpu"
+        if d.startswith("cuda"):
+            if not torch.cuda.is_available():
+                raise ValueError("CUDA requested but not available")
+            return d
+        if d == "mps":
+            mps_ok = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+            if not mps_ok:
+                raise ValueError("MPS requested but not available")
+            return d
+        raise ValueError(f"Unsupported device: {device}")
+
+    @staticmethod
+    def _mean_pool(last_hidden_state: Any, attention_mask: Any, torch: Any) -> Any:
+        mask = attention_mask.unsqueeze(-1).expand(last_hidden_state.size()).float()
+        summed = (last_hidden_state * mask).sum(dim=1)
+        denom = mask.sum(dim=1).clamp(min=1e-12)
+        return summed / denom
+
+    def embed_text(self, text: str, output_type: OutputType = "list") -> VectorOutput:
+        out = self.embed_texts([text], output_type=output_type)
+        return out[0]  # type: ignore[index]
+
+    def embed_texts(
+        self,
+        texts: Sequence[str],
+        output_type: OutputType = "list",
+    ) -> BatchOutput:
+        clean = _validate_texts(texts)
+        if not clean:
+            return _empty_output(output_type)
+
+        torch = _import_torch()
+        F = _import_torch_functional()
+        all_batches: List[np.ndarray] = []
+
+        for i in range(0, len(clean), self.batch_size):
+            batch = clean[i : i + self.batch_size]
+            inputs = self.tokenizer(
+                batch,
+                padding=True,
+                truncation=True,
+                return_tensors="pt",
+            )
+            if hasattr(inputs, "to"):
+                inputs = inputs.to(self.device)
+
+            with torch.inference_mode():
+                outputs = self.model(**inputs)
+                pooled = self._mean_pool(outputs.last_hidden_state, inputs["attention_mask"], torch)
+                if self.normalize:
+                    pooled = F.normalize(pooled, p=2, dim=-1)
+
+            all_batches.append(pooled.detach().cpu().numpy().astype(np.float32))
+
+        arr = np.concatenate(all_batches, axis=0)
+        return _to_output(arr, output_type)
+
+
 class CLIPMultimodalEmbedder:
     """
     CLIP multimodal encoder (text + image).
@@ -109,11 +237,14 @@ class CLIPMultimodalEmbedder:
         if batch_size <= 0:
             raise ValueError("batch_size must be > 0")
 
-        self.device = self._resolve_device(device)
+        AutoTokenizer, CLIPModel, CLIPProcessor = _import_clip_stack()
+        torch = _import_torch()
+
+        self.device = self._resolve_device(device, torch)
         self.batch_size = batch_size
         self.warn_on_truncate = warn_on_truncate
+        self.torch = torch
 
-        # transformers stubs are incomplete in Pylance; route through Any to avoid false positives.
         processor_cls: Any = CLIPProcessor
         model_cls: Any = CLIPModel
         tokenizer_cls: Any = AutoTokenizer
@@ -131,7 +262,7 @@ class CLIPMultimodalEmbedder:
         self.max_text_tokens = max_pos
 
     @staticmethod
-    def _resolve_device(device: Optional[str]) -> str:
+    def _resolve_device(device: Optional[str], torch: Any) -> str:
         if not device:
             return "cpu"
 
@@ -172,7 +303,7 @@ class CLIPMultimodalEmbedder:
             )
 
     @staticmethod
-    def _coerce_to_tensor(raw_feats: Any) -> torch.Tensor:
+    def _coerce_to_tensor(raw_feats: Any, torch: Any) -> Any:
         if isinstance(raw_feats, torch.Tensor):
             return raw_feats
 
@@ -218,13 +349,14 @@ class CLIPMultimodalEmbedder:
         if not clean:
             return _empty_output(output_type)
 
+        F = _import_torch_functional()
         self._warn_truncation(clean)
 
         all_batches: List[np.ndarray] = []
         for i in range(0, len(clean), self.batch_size):
             batch = clean[i : i + self.batch_size]
 
-            def _run_once() -> torch.Tensor:
+            def _run_once() -> Any:
                 inputs: Any = self.processor(
                     text=batch,
                     return_tensors="pt",
@@ -234,9 +366,9 @@ class CLIPMultimodalEmbedder:
                 )
                 if hasattr(inputs, "to"):
                     inputs = inputs.to(self.device)
-                with torch.inference_mode():
+                with self.torch.inference_mode():
                     raw_feats: Any = self.model.get_text_features(**inputs)
-                    feats_tensor = self._coerce_to_tensor(raw_feats)
+                    feats_tensor = self._coerce_to_tensor(raw_feats, self.torch)
                     return F.normalize(feats_tensor, p=2, dim=-1)
 
             try:
@@ -281,12 +413,15 @@ class CLIPMultimodalEmbedder:
         if not clean_paths:
             return _empty_output(output_type)
 
+        F = _import_torch_functional()
+        Image, UnidentifiedImageError = _import_pil()
         all_batches: List[np.ndarray] = []
+
         for i in range(0, len(clean_paths), self.batch_size):
             batch_paths = clean_paths[i : i + self.batch_size]
 
             with ExitStack() as stack:
-                images: List[Image.Image] = []
+                images: List[Any] = []
                 for p in batch_paths:
                     try:
                         pil = stack.enter_context(Image.open(p))
@@ -297,13 +432,13 @@ class CLIPMultimodalEmbedder:
                     images.append(rgb)
                     stack.callback(rgb.close)
 
-                def _run_once() -> torch.Tensor:
+                def _run_once() -> Any:
                     inputs: Any = self.processor(images=images, return_tensors="pt")
                     if hasattr(inputs, "to"):
                         inputs = inputs.to(self.device)
-                    with torch.inference_mode():
+                    with self.torch.inference_mode():
                         raw_feats: Any = self.model.get_image_features(**inputs)
-                        feats_tensor = self._coerce_to_tensor(raw_feats)
+                        feats_tensor = self._coerce_to_tensor(raw_feats, self.torch)
                         return F.normalize(feats_tensor, p=2, dim=-1)
 
                 try:
@@ -318,3 +453,19 @@ class CLIPMultimodalEmbedder:
 
         arr = np.concatenate(all_batches, axis=0)
         return _to_output(arr, output_type)
+
+
+def build_text_embedder(provider: Optional[str] = None) -> Union[OpenAICompatibleEmbedder, LocalTextEmbedder]:
+    settings = get_settings()
+    resolved = (provider or settings.embed_provider).strip().lower()
+    if resolved == "openai_compatible":
+        return OpenAICompatibleEmbedder(model=settings.embed_model)
+    if resolved in {"local", "local_hf", "huggingface_local"}:
+        return LocalTextEmbedder(
+            model_name=settings.embed_model,
+            device=settings.embed_device,
+            normalize=settings.local_embed_normalize,
+            trust_remote_code=settings.local_embed_trust_remote_code,
+        )
+    raise ValueError(f"Unsupported embed provider: {resolved}")
+

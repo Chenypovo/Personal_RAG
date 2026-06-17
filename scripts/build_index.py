@@ -10,7 +10,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from app.chunker.text_chunker import chunk_text  # noqa: E402
-from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedder  # noqa: E402
+from app.embedder.embedder import CLIPMultimodalEmbedder, build_text_embedder  # noqa: E402
 from app.loader import SUPPORTED_EXTENSIONS, load_document  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
@@ -100,16 +100,16 @@ def build_records(file_paths: List[str], chunk_size: int, overlap: int) -> List[
     return records
 
 
-def embed_records_openai(records: List[Dict[str, Any]]) -> Tuple[List[List[float]], List[Dict[str, Any]]]:
+def embed_records_text(records: List[Dict[str, Any]], provider: str) -> Tuple[List[List[float]], List[Dict[str, Any]]]:
     text_records = [r for r in records if str(r.get("modality", "text")) == "text"]
     skipped = len(records) - len(text_records)
     if skipped > 0:
-        print(f"[openai] skip non-text records: {skipped}")
+        print(f"[{provider}] skip non-text records: {skipped}")
 
     if not text_records:
         return [], []
 
-    embedder = OpenAICompatibleEmbedder()
+    embedder = build_text_embedder(provider=provider)
     texts = [str(r.get("text", "")) for r in text_records]
     vectors_raw = embedder.embed_texts(texts, output_type="list")
     vectors = _as_vector_matrix(vectors_raw)
@@ -187,8 +187,8 @@ def main() -> None:
         "--embed-backend",
         type=str,
         default="openai",
-        choices=["openai", "clip"],
-        help="openai: text-only embeddings; clip: text+image/video-frames in one space",
+        choices=["openai", "local", "clip"],
+        help="openai/local: text-only embeddings; clip: text+image/video-frames in one space",
     )
     parser.add_argument("--clip-model-name", type=str, default="openai/clip-vit-base-patch32")
     parser.add_argument("--clip-device", type=str, default="cpu")
@@ -222,8 +222,11 @@ def main() -> None:
     image_count = sum(1 for r in records if str(r.get("modality", "")) == "image")
     print(f"Generated records: {len(records)} (text={text_count}, image={image_count})")
 
-    if args.embed_backend == "openai":
-        vectors, metadatas = embed_records_openai(records)
+    if args.embed_backend in {"openai", "local"}:
+        vectors, metadatas = embed_records_text(
+            records,
+            provider="openai_compatible" if args.embed_backend == "openai" else "local",
+        )
     else:
         vectors, metadatas = embed_records_clip(
             records=records,

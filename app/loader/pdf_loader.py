@@ -1,7 +1,8 @@
 from pathlib import Path
-from pypdf import PdfReader
 
 def load_pdf(file_path: str) -> dict:
+    from pypdf import PdfReader
+
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"PDF file not found: {file_path}")
