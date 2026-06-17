@@ -1,0 +1,31 @@
+{"fact_id":"f_guitar","fact_object":"乐器","fact_content":"我周末在学吉他。"}
+{"fact_id":"f_piano","fact_object":"乐器","fact_content":"我小时候学过钢琴，后来放弃了。"}
+{"fact_id":"f_drums","fact_object":"乐器","fact_content":"我一直想学架子鼓但还没开始。"}
+{"fact_id":"f_ntu_ai","fact_object":"学业","fact_content":"我在南洋理工大学读人工智能硕士。"}
+{"fact_id":"f_ucl_phys","fact_object":"学业","fact_content":"我本科在伦敦大学学院读物理学。"}
+{"fact_id":"f_friend_eee","fact_object":"他人","fact_content":"我室友在南洋理工读电子工程。"}
+{"fact_id":"f_mem_rag","fact_object":"项目","fact_content":"我现在在做一个带长期记忆的检索增强问答项目。"}
+{"fact_id":"f_radar","fact_object":"项目","fact_content":"我做过车载雷达语义分割的持续学习项目。"}
+{"fact_id":"f_sentiment","fact_object":"项目","fact_content":"我做过电商评论的情感分析项目。"}
+{"fact_id":"f_run","fact_object":"运动","fact_content":"我每周跑步三次。"}
+{"fact_id":"f_swim","fact_object":"运动","fact_content":"我夏天很喜欢游泳。"}
+{"fact_id":"f_badminton","fact_object":"运动","fact_content":"我周末常和朋友打羽毛球。"}
+{"fact_id":"f_coffee","fact_object":"饮食","fact_content":"我每天早上要喝一杯美式咖啡。"}
+{"fact_id":"f_tea","fact_object":"饮食","fact_content":"我下午喜欢喝绿茶。"}
+{"fact_id":"f_veg","fact_object":"饮食","fact_content":"我最近在尝试少吃红肉。"}
+{"fact_id":"f_live_sg","fact_object":"地点","fact_content":"我现在住在新加坡。"}
+{"fact_id":"f_from_cn","fact_object":"地点","fact_content":"我来自中国。"}
+{"fact_id":"f_visit_jp","fact_object":"地点","fact_content":"我去年去日本旅行过。"}
+{"fact_id":"f_ielts","fact_object":"语言","fact_content":"我雅思考了七分。"}
+{"fact_id":"f_learn_jp","fact_object":"语言","fact_content":"我在自学日语。"}
+{"fact_id":"f_cat","fact_object":"宠物","fact_content":"我养了一只猫。"}
+{"fact_id":"f_sister","fact_object":"家庭","fact_content":"我有一个妹妹。"}
+{"fact_id":"f_python","fact_object":"技术","fact_content":"我平时主要用 Python 写代码。"}
+{"fact_id":"f_pytorch","fact_object":"技术","fact_content":"我做深度学习常用 PyTorch。"}
+{"fact_id":"f_vscode","fact_object":"技术","fact_content":"我习惯用 VSCode 作为编辑器。"}
+{"fact_id":"f_phd","fact_object":"计划","fact_content":"我考虑明年申请博士。"}
+{"fact_id":"f_intern","fact_object":"计划","fact_content":"我在找算法相关的实习。"}
+{"fact_id":"f_birthday","fact_object":"个人","fact_content":"我的生日在九月。"}
+{"fact_id":"f_rock","fact_object":"爱好","fact_content":"我喜欢听摇滚乐。"}
+{"fact_id":"f_book","fact_object":"阅读","fact_content":"我最近在读一本关于强化学习的书。"}
+{"fact_id":"f_coffee_shop","fact_object":"爱好","fact_content":"我喜欢周末去咖啡馆待一下午。"}

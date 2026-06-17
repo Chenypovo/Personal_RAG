@@ -1,0 +1,333 @@
+{
+  "metrics": {
+    "recall@1": 0.9,
+    "mrr@1": 0.9,
+    "recall@3": 0.95,
+    "mrr@3": 0.9166666666666666,
+    "recall@5": 0.95,
+    "mrr@5": 0.9166666666666666
+  },
+  "per_query": [
+    {
+      "query_id": "mq1",
+      "pred": [
+        "f_guitar",
+        "f_rock",
+        "f_badminton",
+        "f_drums",
+        "f_piano"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq2",
+      "pred": [
+        "f_friend_eee",
+        "f_ucl_phys",
+        "f_ntu_ai",
+        "f_phd",
+        "f_book"
+      ],
+      "recall@1": 0.0,
+      "mrr@1": 0.0,
+      "recall@3": 1.0,
+      "mrr@3": 0.3333333333333333,
+      "recall@5": 1.0,
+      "mrr@5": 0.3333333333333333
+    },
+    {
+      "query_id": "mq3",
+      "pred": [
+        "f_ucl_phys",
+        "f_friend_eee",
+        "f_ntu_ai",
+        "f_phd",
+        "f_pytorch"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq4",
+      "pred": [
+        "f_mem_rag",
+        "f_python",
+        "f_sentiment",
+        "f_radar",
+        "f_drums"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq5",
+      "pred": [
+        "f_radar",
+        "f_sentiment",
+        "f_pytorch",
+        "f_mem_rag",
+        "f_python"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq6",
+      "pred": [
+        "f_sentiment",
+        "f_mem_rag",
+        "f_ielts",
+        "f_radar",
+        "f_python"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq7",
+      "pred": [
+        "f_run",
+        "f_badminton",
+        "f_python",
+        "f_veg",
+        "f_guitar"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq8",
+      "pred": [
+        "f_badminton",
+        "f_guitar",
+        "f_run",
+        "f_coffee_shop",
+        "f_rock"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq9",
+      "pred": [
+        "f_coffee",
+        "f_tea",
+        "f_coffee_shop",
+        "f_veg",
+        "f_python"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq10",
+      "pred": [
+        "f_tea",
+        "f_coffee_shop",
+        "f_coffee",
+        "f_rock",
+        "f_swim"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq11",
+      "pred": [
+        "f_live_sg",
+        "f_from_cn",
+        "f_cat",
+        "f_mem_rag",
+        "f_sister"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq12",
+      "pred": [
+        "f_from_cn",
+        "f_learn_jp",
+        "f_python",
+        "f_sister",
+        "f_guitar"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq13",
+      "pred": [
+        "f_ielts",
+        "f_sentiment",
+        "f_radar",
+        "f_piano",
+        "f_from_cn"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq14",
+      "pred": [
+        "f_learn_jp",
+        "f_from_cn",
+        "f_drums",
+        "f_guitar",
+        "f_pytorch"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq15",
+      "pred": [
+        "f_cat",
+        "f_swim",
+        "f_book",
+        "f_sister",
+        "f_rock"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq16",
+      "pred": [
+        "f_python",
+        "f_vscode",
+        "f_pytorch",
+        "f_learn_jp",
+        "f_from_cn"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq17",
+      "pred": [
+        "f_pytorch",
+        "f_vscode",
+        "f_python",
+        "f_radar",
+        "f_intern"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq18",
+      "pred": [
+        "f_mem_rag",
+        "f_pytorch",
+        "f_drums",
+        "f_python",
+        "f_sentiment"
+      ],
+      "recall@1": 0.0,
+      "mrr@1": 0.0,
+      "recall@3": 0.0,
+      "mrr@3": 0.0,
+      "recall@5": 0.0,
+      "mrr@5": 0.0
+    },
+    {
+      "query_id": "mq19",
+      "pred": [
+        "f_intern",
+        "f_pytorch",
+        "f_guitar",
+        "f_book",
+        "f_mem_rag"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    {
+      "query_id": "mq20",
+      "pred": [
+        "f_visit_jp",
+        "f_from_cn",
+        "f_swim",
+        "f_badminton",
+        "f_rock"
+      ],
+      "recall@1": 1.0,
+      "mrr@1": 1.0,
+      "recall@3": 1.0,
+      "mrr@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    }
+  ],
+  "n_eval": 20
+}
