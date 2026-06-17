@@ -5,7 +5,7 @@ def load_md(file_path: str) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"Markdown file not found: {file_path}")
     
-    if path.suffix.lower() != "md":
+    if path.suffix.lower() != ".md":
         raise ValueError(f"Not a .md file: {file_path}")
     
     text = path.read_text(encoding="utf-8", errors="ignore").strip()

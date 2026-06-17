@@ -1,0 +1,182 @@
+[
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/chunking_strategy.md",
+    "text": "# 结构化 Chunking 策略\n\n## 背景\n\n个人知识库中的文档通常有标题、列表、代码块和表格。如果只按固定字符数切分，会把标题和正文分开，也可能把一个参数表拆到不同片段里，导致检索命中后上下文不完整。结构化 chunking 的目标是尽量保留 Markdown 层级，同时控制每个 chunk 的长度，使向量检索和 BM25 都能得到稳定输入。\n\n## 核心设计\n\n切分器先按一级和二级标题建立段落块，再在段落块内部按句子边界合并。每个 chunk 会继承最近的标题路径，例如“结构化 Chunking 策略 > 参数与配置”。代码块和表格被视为不可拆单元，除非单元本身超过硬限制。每个 chunk 的 metadata 包含 source、chunk_id、heading_path、start_char、end_char 和 text。chunk_id 在单个 source 内从 0 递增，用于生成 source#chunk_id 形式的 doc_id。\n\n## 参数与配置\n\n结构化 chunking 默认使用 450 token 作为 chunk_size，70 token 作为 overlap。遇到 Markdown 表格时，表头会复制到每个被拆分的表格片段中。单个代码块的硬上限是 900 token，超过后按空行切分。为了减少重复召回，同一文档相邻 chunk 的最大重叠比例限制为 25%。中文句子切分优先识别句号、问号、感叹号和分号。\n\n## 边界与失败处理",
+    "start": 0,
+    "end": 646,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/chunking_strategy.md",
+    "text": "会复制到每个被拆分的表格片段中。单个代码块的硬上限是 900 token，超过后按空行切分。为了减少重复召回，同一文档相邻 chunk 的最大重叠比例限制为 25%。中文句子切分优先识别句号、问号、感叹号和分号。\n\n## 边界与失败处理\n\n如果文档没有标题，切分器会退化为普通滑窗切分，并把 heading_path 设为“untitled”。如果 PDF 解析出的文本行顺序混乱，系统会先按页码保留 page 字段，避免跨页拼接造成错误语义。对于极短文档，系统只生成一个 chunk，chunk_id 为 0。若某个 chunk 清洗后为空，会被跳过，但 chunk_id 不会回填，以保持索引和日志一致。\n\n## 结论\n\n结构化 chunking 通过标题继承、句子边界和重叠控制，提升了召回片段的可读性。它最适合测参数定位、章节定位和跨段综合问题，也是后续 chunk 级 qrels 的基础。",
+    "start": 526,
+    "end": 926,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/reranker_design.md",
+    "text": "# BGE Reranker 精排设计\n\n## 背景\n\n初召回阶段通常追求高召回，会返回比最终上下文更多的候选。候选里可能有同一文档的重复片段，也可能有关键词命中但语义不相关的片段。Reranker 的职责是在候选数量较小的情况下，用交叉编码器重新判断 query 和 chunk 的相关性，把最可靠的证据排到前面。\n\n## 核心设计\n\n系统先从 vector、BM25 或 hybrid 中取 rerank_candidate_k 个候选，再把每个候选与原始 query 组成 pair 输入 BGE Reranker。Reranker 输出相关性分数后，系统按分数降序排序，并保留 rerank_top_k 条证据。精排后仍会执行 source 去重，避免最终上下文被同一文档占满。对于跨段综合问题，允许同一 source 保留最多 2 个 chunk。\n\n## 参数与配置\n\nBGE Reranker 默认使用 BAAI/bge-reranker-base。rerank_candidate_k 默认是 20，rerank_top_k 默认是 4。最大输入长度 max_length 设置为 512 token，超过后截断 chunk 文本而不是截断 query。Reranker 默认在 CPU 上运行，若检测到 CUDA 可用才切换到 GPU。精排开关名为 --rerank，关闭时系统直接使用初召回排序。\n\n## 边界与失败处理",
+    "start": 0,
+    "end": 622,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/reranker_design.md",
+    "text": "token，超过后截断 chunk 文本而不是截断 query。Reranker 默认在 CPU 上运行，若检测到 CUDA 可用才切换到 GPU。精排开关名为 --rerank，关闭时系统直接使用初召回排序。\n\n## 边界与失败处理\n\n如果 transformers 或 torch 未安装，系统会懒加载失败并自动跳过精排，同时保留初召回结果。如果 reranker 模型下载失败，系统不会中断问答，而是记录 reranker_unavailable。对于非常短的精确参数问题，BM25 排名可能已经足够好，此时 Reranker 的收益可能有限。若候选数少于 rerank_top_k，则返回全部候选。\n\n## 结论\n\nReranker 是提升 MRR@K 的关键模块，尤其适合把第 2 到第 4 名的相关证据推到第 1 名。它不替代召回，而是在召回后做更细粒度的相关性判断。",
+    "start": 502,
+    "end": 893,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/memory_agent.md",
+    "text": "# 长期记忆 Agent 设计\n\n## 背景\n\n长期记忆用于保存用户的稳定事实、偏好、约束和阶段性目标。它不同于文档库：文档库主要来自上传资料，长期记忆主要来自对话中抽取的个人信息。记忆模块需要支持新增、更新、冲突检测和召回评测，避免把过时偏好误用于当前回答。\n\n## 核心设计\n\n每条记忆由 fact_id、fact_object、fact_content、visibility、state、source 和 updated_at 组成。fact_object 的推荐类别包括 school、work、project、preference、skill、location、constraint 和 goal。抽取器从用户消息中识别候选事实，合并器再判断它是新事实、补充事实还是与旧事实冲突。检索时使用记忆向量索引召回 top_k 条，再按 state 和 visibility 过滤。\n\n## 参数与配置\n\n记忆召回默认 top_k 为 5，评测建议使用 Recall@1、Recall@3 和 MRR@3。相似事实合并阈值 memory_merge_threshold 设置为 0.78。冲突检测阈值 memory_conflict_threshold 设置为 0.72。ACTIVE 状态的事实才会进入检索，SUPERSEDED 状态只保留审计用途。默认 visibility 是 PUBLIC，敏感事实可以标记为 PRIVATE 并禁止进入普通回答上下文。\n\n## 边界与失败处理",
+    "start": 0,
+    "end": 645,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/memory_agent.md",
+    "text": "ld 设置为 0.72。ACTIVE 状态的事实才会进入检索，SUPERSEDED 状态只保留审计用途。默认 visibility 是 PUBLIC，敏感事实可以标记为 PRIVATE 并禁止进入普通回答上下文。\n\n## 边界与失败处理\n\n当新事实和旧事实冲突时，系统不会直接删除旧事实，而是把旧事实标记为 SUPERSEDED，并把新事实写为 ACTIVE。如果抽取器置信度低于 0.6，候选事实会进入待确认队列，不直接写入记忆库。对于临时情绪和一次性指令，系统不写入长期记忆。若记忆检索为空，回答仍可继续使用文档证据。\n\n## 结论\n\n长期记忆 Agent 的重点是稳定、可撤销和可评测。通过 fact_id 级 qrels，可以单独评估记忆召回是否能处理改写问法和相近事实干扰。",
+    "start": 525,
+    "end": 867,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/evidence_generation.md",
+    "text": "# 证据约束生成\n\n## 背景\n\nRAG 系统的生成阶段最容易出现的问题是证据不足时仍然给出确定回答，或者把多个来源混在一起导致引用不可追踪。证据约束生成要求模型只基于检索证据回答，并在回答中明确指出证据来源。它的目标不是让回答更长，而是让回答更可靠。\n\n## 核心设计\n\n生成器接收三块输入：用户问题、文档证据列表和长期记忆列表。每条文档证据包含 doc_id、source、chunk_id 和 text，每条记忆证据包含 fact_id 和 fact_content。提示词要求模型先判断证据是否足够，再组织答案。如果答案涉及参数，必须优先引用包含具体数值的证据。如果不同证据冲突，模型需要说明冲突，而不是强行合并。\n\n## 参数与配置\n\n默认证据拼接模板名为 grounded_zh_v1。单条证据最大长度 evidence_max_chars 为 900 个中文字符。最终答案默认不超过 600 个中文字符。生成温度 temperature 设置为 0.1，top_p 设置为 0.9。引用格式采用方括号，例如 [data/uploads_eval/hybrid_retrieval.md#0] 或 [m023]。当没有任何证据命中时，fallback_answer 是“我没有在当前知识库中找到足够依据”。\n\n## 边界与失败处理",
+    "start": 0,
+    "end": 573,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/evidence_generation.md",
+    "text": "用方括号，例如 [data/uploads_eval/hybrid_retrieval.md#0] 或 [m023]。当没有任何证据命中时，fallback_answer 是“我没有在当前知识库中找到足够依据”。\n\n## 边界与失败处理\n\n如果用户要求总结整篇文档，但只检索到一个局部 chunk，生成器必须说明“当前只覆盖部分内容”。如果证据中没有答案需要的字段，模型不能从常识补齐。对于代码、命令和参数，生成器需要原样保留关键 token，避免把 rrf_k、top_k、chunk_id 等字段改写错。若引用数量超过 5 个，系统会只保留最关键的引用。\n\n## 结论\n\n证据约束生成把检索结果转化为可引用答案，是从“能搜到”到“能可信回答”的最后一步。它适合用人工样例检查忠实性，也适合配合自动评测检查引用覆盖率。",
+    "start": 453,
+    "end": 813,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/rag_architecture.md",
+    "text": "# 多模态 RAG Agent 总体架构\n\n## 背景\n\n这个合成文档描述一个面向个人知识库的多模态 RAG Agent。系统目标不是把所有回答都交给大模型自由发挥，而是让用户问题先经过路由、检索、证据组织和受约束生成。文档库可以包含 Markdown、PDF、纯文本、图片和视频帧，长期记忆则保存用户偏好、项目状态和稳定事实。两类信息在回答时都可以参与上下文，但它们的生命周期和可信度不同：文档库偏向可追溯资料，长期记忆偏向用户画像和历史交互。\n\n## 核心设计\n\n系统采用五层流水线：输入解析层、检索层、证据层、生成层和反馈层。输入解析层把用户问题规范化，并识别是否需要图片查询、记忆召回或普通文档检索。检索层同时支持向量检索、BM25 关键词检索和混合检索。证据层负责去重、截断和引用排序，确保传给生成模型的是短而密的证据片段。生成层使用中文回答模板，要求先依据证据回答，再说明不确定部分。反馈层记录失败样例，用于后续评测集扩充。\n\n## 参数与配置\n\n默认路由阈值 route_confidence_threshold 设为 0.62，低于阈值时系统会同时触发文档检索和记忆检索。单轮回答最多注入 6 条文档证据和 5 条长期记忆。默认生成温度为 0.1，避免评测时答案波动过大。文档证据的上下文预算为 3200 token，长期记忆预算为 600 token。最终回答必须带有 source 或 fact_id 级别的引用标识。\n\n## 边界与失败处理",
+    "start": 0,
+    "end": 633,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/rag_architecture.md",
+    "text": "条长期记忆。默认生成温度为 0.1，避免评测时答案波动过大。文档证据的上下文预算为 3200 token，长期记忆预算为 600 token。最终回答必须带有 source 或 fact_id 级别的引用标识。\n\n## 边界与失败处理\n\n如果路由器无法判断问题类型，系统会进入保守模式：先检索文档，再检索记忆，最后把两类证据分区传给生成器。如果检索结果为空，生成器不能编造结论，而是提示“当前知识库未找到足够证据”。如果用户问题同时要求项目事实和个人偏好，系统会把文档证据放在前面，把记忆证据放在后面，避免个人偏好覆盖可验证资料。\n\n## 结论\n\n总体架构强调可追溯、可评测和可降级。它把 RAG 拆成可单独测试的模块，因此可以分别评估路由准确率、检索 Recall@K、Reranker 的排序收益，以及生成阶段是否忠实引用证据。",
+    "start": 513,
+    "end": 880,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/lancedb_vector_store.md",
+    "text": "# LanceDB 与本地向量库设计\n\n## 背景\n\n向量库负责保存 embedding、文本片段和检索所需的 metadata。这个合成系统支持两种后端：轻量级 FAISS 本地索引和面向表结构管理的 LanceDB。FAISS 适合快速原型和纯向量召回，LanceDB 更适合需要过滤、版本字段和多模态记录统一存储的场景。\n\n## 核心设计\n\nLanceDB 表名默认是 personal_rag_chunks，每条记录包含 doc_id、source、chunk_id、modality、text、embedding、created_at 和 extra_json。doc_id 使用 source#chunk_id 生成，保证评测 qrels 可以稳定对齐。对于图片或视频帧，text 字段保存 OCR 或帧说明，modality 字段分别写 image 或 video_frame。extra_json 用于保存 page、heading_path、image_path、time_sec 等扩展字段。\n\n## 参数与配置",
+    "start": 0,
+    "end": 468,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/lancedb_vector_store.md",
+    "text": "段保存 OCR 或帧说明，modality 字段分别写 image 或 video_frame。extra_json 用于保存 page、heading_path、image_path、time_sec 等扩展字段。\n\n## 参数与配置\n\nLanceDB 默认向量列名为 embedding，向量维度由 embedding 模型第一次写入时确定。批量写入 batch_size 默认为 128。检索默认 top_k 为 8，带 metadata filter 时先过滤 source 或 modality，再做向量相似度排序。本地 FAISS 的索引文件默认保存到 data/index/faiss.index，元数据保存到 data/index/metadatas.json。LanceDB 数据目录默认是 data/lancedb。\n\n## 边界与失败处理\n\n当 LanceDB 不可用或依赖未安装时，系统会自动降级到 FAISSStore，不阻塞基础检索流程。如果写入时发现 embedding 维度与表结构不一致，系统会拒绝追加并提示重建索引。对于重复 doc_id，默认策略是覆盖旧记录，而不是插入重复行。若 metadata 中缺少 source，系统会使用 unknown_source，并在构建日志中标记为高优先级告警。\n\n## 结论\n\nLanceDB 方案强调结构化 metadata 与向量的统一管理，FAISS 方案强调最少依赖和速度。两者都必须保持 doc_id 规则一致，否则评测标注无法复用。",
+    "start": 348,
+    "end": 1008,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/multimodal_ingestion.md",
+    "text": "# OCR 与多模态接入\n\n## 背景\n\n个人资料中常见图片、扫描 PDF、截图和短视频。多模态接入层负责把这些非纯文本资料转换成可检索记录。系统不假设所有环境都有完整 OCR 或视频处理依赖，因此必须具备可选增强和自动降级能力。\n\n## 核心设计\n\n文本文件直接进入文本 loader。PDF 优先提取内嵌文本，若页面文本为空再尝试 OCR。图片 loader 会保存 image_path，并把 OCR 结果写入 text 字段。视频 loader 按固定间隔抽帧，把每一帧保存为 image record，同时记录 time_sec。所有多模态记录都会统一成 entries 列表，每个 entry 包含 source、modality、text、chunk_id 和扩展 metadata。\n\n## 参数与配置\n\n图片 OCR 默认引擎是 rapidocr，语言模式为中英文混合。OCR 置信度阈值 ocr_min_confidence 设置为 0.45。视频抽帧间隔 frame_interval_sec 默认为 5 秒，最多抽取 60 帧。图片记录的 modality 写为 image，视频帧写为 video_frame。CLIP 多模态检索默认模型是 openai/clip-vit-base-patch32，设备默认使用 CPU。\n\n## 边界与失败处理",
+    "start": 0,
+    "end": 588,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/multimodal_ingestion.md",
+    "text": "抽取 60 帧。图片记录的 modality 写为 image，视频帧写为 video_frame。CLIP 多模态检索默认模型是 openai/clip-vit-base-patch32，设备默认使用 CPU。\n\n## 边界与失败处理\n\n当 OCR 失败时系统会降级：保留 image_path 和 modality，但 text 写为空字符串，并允许 CLIP 图像向量继续参与检索。如果 rapidocr 未安装，图片 loader 不会报错退出，而是记录 ocr_unavailable。若视频解码失败，系统会跳过该文件并在日志中写入 video_decode_failed。对于扫描 PDF，若 OCR 和文本提取都失败，该页不会生成文本 chunk。\n\n## 结论\n\n多模态接入层的核心价值是统一数据结构和可降级处理。即使 OCR 不可用，系统也能保留文件路径和模态信息，为后续图像检索或人工排查提供依据。",
+    "start": 468,
+    "end": 877,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/hybrid_retrieval.md",
+    "text": "# BM25 与 RRF 混合检索\n\n## 背景\n\n单独使用向量检索时，系统擅长处理改写后的语义问题，但可能漏掉精确参数、文件名和专有名词。单独使用 BM25 时，系统对关键词敏感，但对同义改写和长问题不够稳定。混合检索把两类结果合并，目标是在参数查询和语义查询之间取得更高的 Recall@K。\n\n## 核心设计\n\n混合检索流程分为三步。第一步使用 embedding 对问题做向量召回，默认取 vector_k 个候选。第二步使用 BM25 对原始问题做关键词召回，默认取 bm25_k 个候选。第三步用 Reciprocal Rank Fusion，也就是 RRF，把两个候选列表按排名融合。RRF 不直接比较向量距离和 BM25 分数，而是把排名转换成 1 / (rrf_k + rank) 的分值后相加。\n\n## 参数与配置\n\nRRF 融合中的默认 rrf_k 为 60。vector_k 默认是 40，bm25_k 默认是 40，最终返回 top_k 默认是 4。BM25 分词启用 jieba，并开启中文二元词 fallback，用来处理没有空格的中文短语。向量检索的 max_distance 默认是 0.8，严格模式 strict=true 时，距离超过阈值的候选会被过滤。评测时建议报告 Recall@1、Recall@4 和 MRR@4。\n\n## 边界与失败处理",
+    "start": 0,
+    "end": 594,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/hybrid_retrieval.md",
+    "text": "处理没有空格的中文短语。向量检索的 max_distance 默认是 0.8，严格模式 strict=true 时，距离超过阈值的候选会被过滤。评测时建议报告 Recall@1、Recall@4 和 MRR@4。\n\n## 边界与失败处理\n\n如果问题只有图片没有文本，混合检索会退化为向量检索，因为 BM25 无法处理图像输入。如果向量分支因为模型不可用失败，系统可以只跑 BM25 并在日志中标记 vector_unavailable。如果 BM25 索引文件不存在，系统会拒绝 hybrid 模式，提示先重建 bm25.json。融合后出现重复 doc_id 时，只保留融合分数最高的一条记录。\n\n## 结论\n\n混合检索适合个人 RAG 的常见问题：既有“某个参数是多少”的精确查询，也有“这个模块为什么这样设计”的语义查询。RRF 的优势是简单、稳健，不要求不同检索器的原始分数可比。",
+    "start": 474,
+    "end": 868,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/deployment_notes.md",
+    "text": "# 部署与配置说明\n\n## 背景\n\n个人 RAG 项目通常需要在本地开发、演示环境和云端环境之间切换。部署设计需要让 embedding provider、LLM provider、索引路径和可选依赖都能通过配置控制。这样既能在本地离线跑评测，也能在有 API key 的环境中使用远端模型。\n\n## 核心设计\n\n配置集中在 .env 和 app/config.py。文本 embedding 支持 openai_compatible 和 local 两种 provider。openai_compatible 用于兼容远端 embedding API，local 用于 Hugging Face 模型。索引文件默认放在 data/index，上传文件默认放在 data/uploads，合成评测文档放在 data/uploads_eval。Streamlit 前端调用同一套 pipeline，因此命令行和网页端结果应保持一致。\n\n## 参数与配置",
+    "start": 0,
+    "end": 427,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/deployment_notes.md",
+    "text": "认放在 data/index，上传文件默认放在 data/uploads，合成评测文档放在 data/uploads_eval。Streamlit 前端调用同一套 pipeline，因此命令行和网页端结果应保持一致。\n\n## 参数与配置\n\n默认本地 embedding 模型是 BAAI/bge-small-zh-v1.5，默认设备 EMBED_DEVICE=cpu。远端 embedding 默认读取 EMBED_BASE_URL、EMBED_API_KEY 和 EMBED_MODEL。LLM 默认读取 LLM_BASE_URL、LLM_API_KEY 和 LLM_MODEL。建库命令使用 scripts/build_index.py，检索评测命令使用 scripts/eval_retrieval.py。网页端默认通过 streamlit run web/streamlit_app.py 启动。\n\n## 边界与失败处理\n\n如果没有 API key，系统应选择 local embedding 或跳过需要远端模型的功能。如果本地模型尚未缓存，首次运行可能需要联网下载；离线环境应提前准备模型目录。索引路径不存在时，查询脚本会提示先建库。部署时不建议把 data/memory/memory.db 提交到公开仓库，因为它可能包含个人事实。生产环境应把上传目录和索引目录挂载为持久化卷。\n\n## 结论\n\n部署配置的重点是 provider 可切换、路径可复现、敏感数据不入库。只要评测命令和应用命令共用同一套配置，离线评测结果就能更好地解释线上问答表现。",
+    "start": 307,
+    "end": 986,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 0,
+    "source": "data/uploads_eval/eval_methodology.md",
+    "text": "# RAG 评测方法\n\n## 背景\n\n系统性评测需要把文档检索、记忆召回和生成忠实性拆开。若只观察最终回答，很难判断问题来自召回失败、排序失败还是生成幻觉。这个合成评测集先聚焦检索和记忆两类可量化任务，用 jsonl 保存 query 和 qrels，便于脚本重复运行。\n\n## 核心设计\n\n文档检索评测使用 queries.jsonl 和 qrels.jsonl。queries 每行包含 query_id、query 和可选 query_image。qrels 每行包含 query_id、doc_id 或 source/chunk_id，以及 relevance。记忆评测使用 memory_facts.jsonl、memory_queries.jsonl 和 memory_qrels.jsonl。文档 qrels 的最稳定粒度是 chunk 级 doc_id，格式为 source#chunk_id；在建索引前可以先标注 source 级别。\n\n## 参数与配置\n\n文档检索建议报告 Recall@1、Recall@4 和 MRR@4。记忆召回建议报告 Recall@1、Recall@3 和 MRR@3。每个 query 建议标注 1 到 3 个相关 chunk。小型 synthetic eval 的起步规模是 10 篇文档和 40 条查询。正式简历展示可以扩展到 30 到 80 条文档查询、50 到 100 条记忆事实和 100 条记忆查询。\n\n## 边界与失败处理",
+    "start": 0,
+    "end": 644,
+    "modality": "text",
+    "file_type": "md"
+  },
+  {
+    "chunk_id": 1,
+    "source": "data/uploads_eval/eval_methodology.md",
+    "text": "到 3 个相关 chunk。小型 synthetic eval 的起步规模是 10 篇文档和 40 条查询。正式简历展示可以扩展到 30 到 80 条文档查询、50 到 100 条记忆事实和 100 条记忆查询。\n\n## 边界与失败处理\n\n如果某个 query 没有 qrels，评测脚本应该跳过并统计 n_skipped_no_qrels。如果 qrels 指向不存在的 doc_id，指标会被低估，因此建索引后必须用 metadatas.json 校验。对于跨段综合问题，qrels 可以包含多个相关 chunk，Recall@K 会按命中的相关集合比例计算。不要把不相关样例写入 qrels，relevance=1 表示相关即可。\n\n## 结论\n\n评测方法的关键是标注可复现。先用文档级 source 标注快速启动，再根据真实 chunk_id 生成 chunk 级 qrels，可以兼顾开发速度和指标可信度。",
+    "start": 524,
+    "end": 932,
+    "modality": "text",
+    "file_type": "md"
+  }
+]
