@@ -1,13 +1,32 @@
 import os
 from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
-
 from app.config import get_provider_config, get_settings
+
+
+SYSTEM_PROMPT = (
+    "You are a RAG assistant. "
+    "Prioritize answering from the given context. "
+    "If context is insufficient, you may add common knowledge but clearly separate it. "
+    "Use only evidence labels from provided chunks, such as [Chunk x, filename] or [Frame x, filename, t=xx.xx s]. "
+    "Do not treat URLs inside chunks as retrieved citations. "
+    "An 'About the user' section may be provided as personal background to personalize the "
+    "answer; it is NOT retrieved evidence, so do not cite it."
+)
+
+
+def compose_user_prompt(query: str, context: str, user_memory: str = "") -> str:
+    parts = [f"User question:\n{query}", f"Retrieved context:\n{context}"]
+    if user_memory.strip():
+        parts.append("About the user (personal background, not evidence):\n" + user_memory.strip())
+    parts.append("Provide a concise and accurate answer. Append evidence labels to key claims.")
+    return "\n\n".join(parts)
 
 
 class OpenAICompatibleGenerator:
     def __init__(self, model: Optional[str] = None) -> None:
+        from openai import OpenAI  # lazy import: only needed when actually generating
+
         settings = get_settings()
         cfg = get_provider_config(settings, settings.llm_provider)
         self.client = OpenAI(api_key=cfg.api_key, base_url=cfg.base_url)
@@ -51,27 +70,19 @@ class OpenAICompatibleGenerator:
 
         return "\n\n".join(lines).strip()
 
-    def generate(self, query: str, retrieved_chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def generate(
+        self,
+        query: str,
+        retrieved_chunks: List[Dict[str, Any]],
+        user_memory: str = "",
+    ) -> Dict[str, Any]:
         context = self._build_context(retrieved_chunks)
-
-        system_prompt = (
-            "You are a RAG assistant. "
-            "Prioritize answering from the given context. "
-            "If context is insufficient, you may add common knowledge but clearly separate it. "
-            "Use only evidence labels from provided chunks, such as [Chunk x, filename] or [Frame x, filename, t=xx.xx s]. "
-            "Do not treat URLs inside chunks as retrieved citations."
-        )
-
-        user_prompt = (
-            f"User question:\n{query}\n\n"
-            f"Retrieved context:\n{context}\n\n"
-            "Provide a concise and accurate answer. Append evidence labels to key claims."
-        )
+        user_prompt = compose_user_prompt(query, context, user_memory)
 
         resp = self.client.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,
