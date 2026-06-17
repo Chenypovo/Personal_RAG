@@ -59,11 +59,20 @@ def _parse_ks(ks: str) -> List[int]:
     return sorted(set(out))
 
 
+def _fact_id(row: Dict[str, Any]) -> str:
+    """Extract a memory/fact id, tolerating common field-name aliases."""
+    for key in ("id", "fact_id", "mem_id", "doc_id"):
+        val = row.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()
+    raise ValueError(f"row missing fact id (tried id/fact_id/mem_id/doc_id): {row}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate memory recall with Recall@K / MRR@K")
-    parser.add_argument("--facts", required=True, help="jsonl: {id, fact_content, fact_object?}")
+    parser.add_argument("--facts", required=True, help="jsonl: {id|fact_id, fact_content, fact_object?}")
     parser.add_argument("--queries", required=True, help="jsonl: {query_id, query}")
-    parser.add_argument("--qrels", required=True, help="jsonl: {query_id, mem_id}")
+    parser.add_argument("--qrels", required=True, help="jsonl: {query_id, mem_id|fact_id, relevance?}")
     parser.add_argument("--ks", default="1,3,5")
     parser.add_argument("--output-json", default="")
     args = parser.parse_args()
@@ -77,7 +86,9 @@ def main() -> None:
     queries = [MemQuery(query_id=str(r["query_id"]), query=str(r["query"])) for r in query_rows]
     qrels: Dict[str, Set[str]] = {}
     for r in qrel_rows:
-        qrels.setdefault(str(r["query_id"]), set()).add(str(r["mem_id"]))
+        if float(r.get("relevance", 1)) <= 0:
+            continue
+        qrels.setdefault(str(r["query_id"]), set()).add(_fact_id(r))
 
     embed_fn = make_embed_fn()
     dim = len(embed_fn("dimension probe"))
@@ -91,7 +102,7 @@ def main() -> None:
         for fr in facts:
             store.add(
                 MemoryFact(
-                    id=str(fr["id"]),
+                    id=_fact_id(fr),
                     fact_content=str(fr["fact_content"]),
                     fact_object=str(fr.get("fact_object", "")),
                 )
