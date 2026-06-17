@@ -11,7 +11,7 @@ def load_video(
     max_frames: int = 120,
     frames_root: str = "data/frames",
 ) -> Dict[str, Any]:
-    import cv2
+    import cv2  # lazy: only needed when loading a video
 
     path = Path(file_path)
     if not path.exists():

@@ -198,17 +198,17 @@ def main() -> None:
     parser.add_argument("--vector-k", type=int, default=20, help="Hybrid: vector branch recall size")
     parser.add_argument("--bm25-k", type=int, default=20, help="Hybrid: bm25 branch recall size")
     parser.add_argument("--rrf-k", type=int, default=60, help="Hybrid: RRF constant (larger = flatter)")
-    parser.add_argument("--rerank", action="store_true", help="Apply BGE reranker on retrieved candidates")
-    parser.add_argument("--rerank-top-k", type=int, default=4, help="Top-k after reranking")
-    parser.add_argument("--rerank-model-name", type=str, default="BAAI/bge-reranker-base")
-    parser.add_argument("--rerank-device", type=str, default="")
-    parser.add_argument("--rerank-batch-size", type=int, default=16)
     parser.add_argument(
         "--jieba-user-dict",
         action="append",
         default=[],
         help="Path to jieba custom dictionary for bm25 query tokenization. Can be used multiple times.",
     )
+    parser.add_argument("--rerank", action="store_true", help="Apply BGE cross-encoder reranking after retrieval")
+    parser.add_argument("--rerank-candidates", type=int, default=20, help="Candidate pool size to rerank before taking top-k")
+    parser.add_argument("--rerank-model", type=str, default="BAAI/bge-reranker-base")
+    parser.add_argument("--rerank-device", type=str, default="")
+    parser.add_argument("--rerank-batch-size", type=int, default=16)
 
     args = parser.parse_args()
 
@@ -217,6 +217,11 @@ def main() -> None:
 
     if args.no_retrieval and not query_text:
         raise ValueError("--no-retrieval requires --query")
+
+    # When reranking, recall a larger candidate pool first, then rerank down to top_k.
+    final_top_k = args.top_k
+    if args.rerank and not args.no_retrieval:
+        args.top_k = max(args.top_k, args.rerank_candidates)
 
     if args.no_retrieval:
         retrieved = _build_direct_context(query_text=query_text)
@@ -227,20 +232,20 @@ def main() -> None:
     else:
         retrieved, query_text = _retrieve_vector(args, query_text, query_image)
 
-    if args.rerank and retrieved and query_text:
-        reranker = BGEReranker(
-            model_name=args.rerank_model_name,
-            device=args.rerank_device or None,
-            batch_size=args.rerank_batch_size,
-        )
-        retrieved = reranker.rerank(query=query_text, retrieved=retrieved, top_k=args.rerank_top_k)
-
     if not retrieved and not args.no_retrieval:
         print("\n=== Answer ===")
         print("No sufficiently relevant evidence found. Try adjusting query settings.")
         print("\n=== Retrieved Sources ===")
         print("(empty)")
         return
+
+    if args.rerank and not args.no_retrieval:
+        reranker = BGEReranker(
+            model_name=args.rerank_model,
+            device=args.rerank_device or None,
+            batch_size=args.rerank_batch_size,
+        )
+        retrieved = reranker.rerank(query=query_text, retrieved=retrieved, top_k=final_top_k)
 
     generator = OpenAICompatibleGenerator()
     result = generator.generate(query=query_text, retrieved_chunks=retrieved)
