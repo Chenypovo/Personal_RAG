@@ -14,6 +14,7 @@ from app.embedder.embedder import CLIPMultimodalEmbedder, build_text_embedder  #
 from app.loader import SUPPORTED_EXTENSIONS, load_document  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
+from app.vectordb.lancedb_store import LanceDBStore  # noqa: E402
 
 
 def collect_files(input_dir: str) -> List[str]:
@@ -175,10 +176,13 @@ def build_bm25(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build FAISS + BM25 index from local multimodal files")
+    parser = argparse.ArgumentParser(description="Build local vector DB + BM25 index from local multimodal files")
     parser.add_argument("--input-dir", type=str, default="data/uploads")
+    parser.add_argument("--vector-store", type=str, default="lancedb", choices=["lancedb", "faiss"])
     parser.add_argument("--index-path", type=str, default="data/index/faiss.index")
     parser.add_argument("--meta-path", type=str, default="data/index/metadatas.json")
+    parser.add_argument("--lancedb-uri", type=str, default="data/index/lancedb")
+    parser.add_argument("--lancedb-table", type=str, default="chunks")
     parser.add_argument("--bm25-path", type=str, default="data/index/bm25.json")
     parser.add_argument("--chunk-size", type=int, default=700)
     parser.add_argument("--overlap", type=int, default=120)
@@ -241,13 +245,21 @@ def main() -> None:
         raise ValueError("vectors and metadatas length mismatch")
 
     dim = len(vectors[0])
-    store = FaissStore(dim=dim)
-    store.add(vectors=vectors, metadatas=metadatas)
-    store.save(index_path=args.index_path, meta_path=args.meta_path)
+    if args.vector_store == "faiss":
+        store = FaissStore(dim=dim)
+        store.add(vectors=vectors, metadatas=metadatas)
+        store.save(index_path=args.index_path, meta_path=args.meta_path)
 
-    print("FAISS build complete.")
-    print(f"FAISS index saved: {args.index_path}")
-    print(f"Metadata saved: {args.meta_path}")
+        print("FAISS build complete.")
+        print(f"FAISS index saved: {args.index_path}")
+        print(f"Metadata saved: {args.meta_path}")
+    else:
+        store = LanceDBStore(uri=args.lancedb_uri, table_name=args.lancedb_table)
+        store.add(vectors=vectors, metadatas=metadatas)
+
+        print("LanceDB build complete.")
+        print(f"LanceDB uri: {args.lancedb_uri}")
+        print(f"LanceDB table: {args.lancedb_table}")
     print(f"Vector dim: {dim}")
     print(f"Stored vectors: {len(vectors)}")
 

@@ -13,6 +13,7 @@ from app.generator.generator import OpenAICompatibleGenerator  # noqa: E402
 from app.reranker.bge_reranker import BGEReranker  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
+from app.vectordb.lancedb_store import LanceDBStore  # noqa: E402
 
 
 def _build_direct_context(query_text: str) -> List[Dict[str, Any]]:
@@ -54,7 +55,10 @@ def _retrieve_vector(args: argparse.Namespace, query_text: str, query_image: str
     if args.embed_backend == "clip" and not query_text and not query_image:
         raise ValueError("clip backend requires --query or --query-image")
 
-    store = FaissStore.load(index_path=args.index_path, meta_path=args.meta_path)
+    if args.vector_store == "faiss":
+        store = FaissStore.load(index_path=args.index_path, meta_path=args.meta_path)
+    else:
+        store = LanceDBStore.load(uri=args.lancedb_uri, table_name=args.lancedb_table)
 
     if args.embed_backend in {"openai", "local"}:
         embedder = build_text_embedder(
@@ -165,8 +169,11 @@ def main() -> None:
     parser.add_argument("--max-distance", type=float, default=0.8, help="Keep results with distance <= threshold (vector only)")
     parser.add_argument("--strict", dest="strict", action="store_true", default=True, help="Strict mode (default: on)")
     parser.add_argument("--no-strict", dest="strict", action="store_false", help="Backfill nearest items when none pass threshold")
+    parser.add_argument("--vector-store", type=str, default="lancedb", choices=["lancedb", "faiss"])
     parser.add_argument("--index-path", type=str, default="data/index/faiss.index")
     parser.add_argument("--meta-path", type=str, default="data/index/metadatas.json")
+    parser.add_argument("--lancedb-uri", type=str, default="data/index/lancedb")
+    parser.add_argument("--lancedb-table", type=str, default="chunks")
     parser.add_argument("--bm25-path", type=str, default="data/index/bm25.json")
     parser.add_argument("--no-retrieval", action="store_true", help="Disable retrieval and do direct generation")
     parser.add_argument("--show-chunks", action="store_true", help="Print retrieved chunk texts")

@@ -11,11 +11,12 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from app.chunker.text_chunker import chunk_text  # noqa: E402
-from app.embedder.embedder import CLIPMultimodalEmbedder, OpenAICompatibleEmbedder  # noqa: E402
+from app.embedder.embedder import CLIPMultimodalEmbedder, build_text_embedder  # noqa: E402
 from app.generator.generator import OpenAICompatibleGenerator  # noqa: E402
 from app.loader import SUPPORTED_EXTENSIONS, load_document  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
+from app.vectordb.lancedb_store import LanceDBStore  # noqa: E402
 
 
 UPLOAD_TYPES = [
@@ -141,11 +142,11 @@ def _build_records(file_paths: List[str], chunk_size: int, overlap: int) -> List
     return records
 
 
-def _build_index_openai(records: List[Dict[str, Any]]) -> Tuple[List[List[float]], List[Dict[str, Any]]]:
+def _build_index_text(records: List[Dict[str, Any]], provider: str) -> Tuple[List[List[float]], List[Dict[str, Any]]]:
     text_records = [r for r in records if str(r.get("modality", "text")) == "text"]
     if not text_records:
         return [], []
-    embedder = OpenAICompatibleEmbedder()
+    embedder = build_text_embedder(provider=provider)
     vec_raw = embedder.embed_texts([str(r.get("text", "")) for r in text_records], output_type="list")
     vectors = _as_vector_matrix(vec_raw)
     return vectors, text_records
@@ -201,10 +202,12 @@ def _query_vector(
 ) -> Tuple[List[float], str]:
     q_text = query_text
 
-    if embed_backend == "openai":
+    if embed_backend in {"openai", "local"}:
         if not q_text.strip():
-            raise ValueError("openai backend requires text query")
-        embedder = OpenAICompatibleEmbedder()
+            raise ValueError(f"{embed_backend} backend requires text query")
+        embedder = build_text_embedder(
+            provider="openai_compatible" if embed_backend == "openai" else "local"
+        )
         q = embedder.embed_text(q_text, output_type="list")
         return _as_vector(q), q_text
 
@@ -229,15 +232,21 @@ def _query_vector(
 
 def _retrieve_vector(
     *,
+    vector_store: str,
     index_path: Path,
     meta_path: Path,
+    lancedb_uri: Path,
+    lancedb_table: str,
     query_vector: List[float],
     top_k: int,
     candidate_k: int,
     max_distance: float,
     strict_mode: bool,
 ) -> List[Dict[str, Any]]:
-    store = FaissStore.load(index_path=str(index_path), meta_path=str(meta_path))
+    if vector_store == "faiss":
+        store = FaissStore.load(index_path=str(index_path), meta_path=str(meta_path))
+    else:
+        store = LanceDBStore.load(uri=str(lancedb_uri), table_name=lancedb_table)
     candidates = store.search(query_vector=query_vector, top_k=max(top_k, candidate_k))
 
     filtered: List[Dict[str, Any]] = []
@@ -260,8 +269,11 @@ def _retrieve_bm25(*, bm25_path: Path, query_text: str, top_k: int) -> List[Dict
 
 def _retrieve_hybrid(
     *,
+    vector_store: str,
     index_path: Path,
     meta_path: Path,
+    lancedb_uri: Path,
+    lancedb_table: str,
     bm25_path: Path,
     query_text: str,
     query_vector: List[float],
@@ -274,8 +286,11 @@ def _retrieve_hybrid(
     strict_mode: bool,
 ) -> List[Dict[str, Any]]:
     vec_items = _retrieve_vector(
+        vector_store=vector_store,
         index_path=index_path,
         meta_path=meta_path,
+        lancedb_uri=lancedb_uri,
+        lancedb_table=lancedb_table,
         query_vector=query_vector,
         top_k=max(top_k, vector_k),
         candidate_k=max(candidate_k, vector_k),
@@ -328,11 +343,14 @@ def main() -> None:
     query_dir = data_dir / "queries"
     index_path = data_dir / "index" / "faiss.index"
     meta_path = data_dir / "index" / "metadatas.json"
+    lancedb_uri = data_dir / "index" / "lancedb"
+    lancedb_table = "chunks"
     bm25_path = data_dir / "index" / "bm25.json"
 
     with st.sidebar:
         st.header("Index Settings")
-        embed_backend = st.selectbox("embed_backend", options=["openai", "clip"], index=0)
+        vector_store = st.selectbox("vector_store", options=["lancedb", "faiss"], index=0)
+        embed_backend = st.selectbox("embed_backend", options=["local", "openai", "clip"], index=0)
         chunk_size = st.number_input("chunk_size", min_value=100, max_value=4000, value=700, step=50)
         overlap = st.number_input("overlap", min_value=0, max_value=1000, value=120, step=10)
 
@@ -382,8 +400,11 @@ def main() -> None:
                     if not records:
                         raise ValueError("No records generated from input files")
 
-                    if embed_backend == "openai":
-                        vectors, metadatas = _build_index_openai(records)
+                    if embed_backend in {"openai", "local"}:
+                        vectors, metadatas = _build_index_text(
+                            records,
+                            provider="openai_compatible" if embed_backend == "openai" else "local",
+                        )
                     else:
                         vectors, metadatas = _build_index_clip(
                             records=records,
@@ -395,25 +416,29 @@ def main() -> None:
                     if not vectors:
                         text_count = sum(1 for r in records if str(r.get("modality", "text")) == "text")
                         image_count = sum(1 for r in records if str(r.get("modality", "")) == "image")
-                        if embed_backend == "openai":
+                        if embed_backend in {"openai", "local"}:
                             raise ValueError(
-                                "No vectors generated in openai mode. "
+                                f"No vectors generated in {embed_backend} mode. "
                                 f"Current records: text={text_count}, image={image_count}. "
                                 "Use clip mode for image/video or upload text/PDF with extractable text."
                             )
                         raise ValueError("No vectors generated")
 
                     dim = len(vectors[0])
-                    store = FaissStore(dim=dim)
-                    store.add(vectors=vectors, metadatas=metadatas)
-                    store.save(index_path=str(index_path), meta_path=str(meta_path))
+                    if vector_store == "faiss":
+                        store = FaissStore(dim=dim)
+                        store.add(vectors=vectors, metadatas=metadatas)
+                        store.save(index_path=str(index_path), meta_path=str(meta_path))
+                    else:
+                        store = LanceDBStore(uri=str(lancedb_uri), table_name=lancedb_table)
+                        store.add(vectors=vectors, metadatas=metadatas)
 
                     bm25_docs, _ = _build_bm25(records=records, bm25_path=bm25_path)
 
                 text_count = sum(1 for r in metadatas if str(r.get("modality", "text")) == "text")
                 image_count = sum(1 for r in metadatas if str(r.get("modality", "")) == "image")
                 st.success(
-                    f"Index built: files={len(file_paths)} vectors={len(vectors)} dim={dim} "
+                    f"Index built: store={vector_store} files={len(file_paths)} vectors={len(vectors)} dim={dim} "
                     f"(text={text_count}, image={image_count}) | bm25_docs={bm25_docs}"
                 )
             except Exception as e:
@@ -454,8 +479,11 @@ def main() -> None:
                         top_k=int(top_k),
                     )
                 else:
-                    if not index_path.exists() or not meta_path.exists():
+                    if vector_store == "faiss" and (not index_path.exists() or not meta_path.exists()):
                         st.error("FAISS index files not found. Build index first.")
+                        return
+                    if vector_store == "lancedb" and not lancedb_uri.exists():
+                        st.error("LanceDB index not found. Build index first.")
                         return
 
                     query_vector, effective_query_text = _query_vector(
@@ -469,8 +497,11 @@ def main() -> None:
 
                     if retrieval_backend == "vector":
                         retrieved = _retrieve_vector(
+                            vector_store=vector_store,
                             index_path=index_path,
                             meta_path=meta_path,
+                            lancedb_uri=lancedb_uri,
+                            lancedb_table=lancedb_table,
                             query_vector=query_vector,
                             top_k=int(top_k),
                             candidate_k=int(candidate_k),
@@ -485,8 +516,11 @@ def main() -> None:
                             st.error("Hybrid backend requires text query.")
                             return
                         retrieved = _retrieve_hybrid(
+                            vector_store=vector_store,
                             index_path=index_path,
                             meta_path=meta_path,
+                            lancedb_uri=lancedb_uri,
+                            lancedb_table=lancedb_table,
                             bm25_path=bm25_path,
                             query_text=effective_query_text,
                             query_vector=query_vector,
