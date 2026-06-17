@@ -1,4 +1,10 @@
+import os
+
 import pytest
+
+# The server module builds a real agent at import time unless told to skip it;
+# tests inject a fake bundle, so suppress the import-time build (needs no creds).
+os.environ["SKIP_APP_BUILD"] = "1"
 
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
