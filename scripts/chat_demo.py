@@ -15,41 +15,13 @@ Type 'exit' / 'quit' to leave, ':mem' to list stored memories.
 import argparse
 import os
 import sys
-from pathlib import Path
-from typing import Any, Dict, List
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from app.agent.agent import MemoryAgent  # noqa: E402
-from app.agent.llm import make_complete_fn, make_embed_fn  # noqa: E402
-from app.agent.router import Router  # noqa: E402
-from app.generator.generator import OpenAICompatibleGenerator  # noqa: E402
-from app.memory.extractor import MemoryExtractor  # noqa: E402
-from app.memory.merger import MemoryMerger  # noqa: E402
-from app.memory.store import MemoryStore  # noqa: E402
-from app.memory.vector_index import NumpyVectorIndex  # noqa: E402
-
-
-def build_doc_retriever(index_path: str, meta_path: str, embed_fn, top_k: int, max_distance: float):
-    """Vector document retrieval with graceful fallback to 'no documents'."""
-    if not (Path(index_path).exists() and Path(meta_path).exists()):
-        print(f"[docs] no index at {index_path}; running memory-only (no document evidence).")
-        return lambda query: []
-
-    from app.vectordb.faiss_store import FaissStore
-
-    store = FaissStore.load(index_path=index_path, meta_path=meta_path)
-
-    def retrieve(query: str) -> List[Dict[str, Any]]:
-        vec = embed_fn(query)
-        candidates = store.search(query_vector=vec, top_k=max(top_k, 20))
-        kept = [c for c in candidates if isinstance(c.get("distance"), (int, float)) and c["distance"] <= max_distance]
-        return (kept or candidates)[:top_k]
-
-    return retrieve
+from app.agent.factory import build_memory_agent  # noqa: E402
 
 
 def main() -> None:
@@ -60,45 +32,19 @@ def main() -> None:
     parser.add_argument("--top-k", type=int, default=4)
     parser.add_argument("--max-distance", type=float, default=0.8)
     parser.add_argument("--recall-k", type=int, default=5)
+    parser.add_argument("--rerank", action="store_true", help="Rerank document evidence with BGE")
     args = parser.parse_args()
 
-    embed_fn = make_embed_fn()
-    complete_fn = make_complete_fn()
-
-    # determine embedding dim from a probe
-    dim = len(embed_fn("dimension probe"))
-
-    mem_dir = Path(args.memory_dir)
-    mem_dir.mkdir(parents=True, exist_ok=True)
-    db_path = str(mem_dir / "memory.db")
-    index_json = mem_dir / "mem_index.json"
-
-    if index_json.exists():
-        vector_index = NumpyVectorIndex.load(str(index_json))
-    else:
-        vector_index = NumpyVectorIndex(dim=dim)
-
-    store = MemoryStore(db_path=db_path, vector_index=vector_index, embed_fn=embed_fn)
-    if len(vector_index) == 0 and store.list_active():
-        rebuilt = store.rebuild_index()
-        print(f"[memory] rebuilt vector index from {rebuilt} stored facts.")
-
-    generator = OpenAICompatibleGenerator()
-
-    def generate_fn(query: str, chunks: List[Dict[str, Any]], user_memory: str) -> Dict[str, Any]:
-        if not chunks and not user_memory.strip():
-            return {"answer": "No documents indexed and nothing remembered yet. Tell me about yourself or build an index.", "sources": []}
-        return generator.generate(query=query, retrieved_chunks=chunks, user_memory=user_memory)
-
-    agent = MemoryAgent(
-        router=Router(complete_fn=complete_fn),
-        store=store,
-        extractor=MemoryExtractor(complete_fn=complete_fn),
-        merger=MemoryMerger(store=store, complete_fn=complete_fn),
-        retrieve_docs_fn=build_doc_retriever(args.index_path, args.meta_path, embed_fn, args.top_k, args.max_distance),
-        generate_fn=generate_fn,
+    bundle = build_memory_agent(
+        memory_dir=args.memory_dir,
+        index_path=args.index_path,
+        meta_path=args.meta_path,
+        top_k=args.top_k,
+        max_distance=args.max_distance,
         recall_k=args.recall_k,
+        use_rerank=args.rerank,
     )
+    agent, store = bundle.agent, bundle.store
 
     print("=" * 70)
     print("Memory-augmented RAG agent. Type 'exit' to quit, ':mem' to list memories.")
@@ -138,10 +84,9 @@ def main() -> None:
             if applied:
                 print(f"  ↳ memory updated: {', '.join(applied)}")
 
-        # persist memory vector index after each turn (SQLite persists itself)
-        vector_index.save(str(index_json))
+        bundle.save()  # persist memory vector index after each turn
 
-    vector_index.save(str(index_json))
+    bundle.save()
     print("Memory saved. Bye.")
 
 

@@ -194,6 +194,9 @@ def main() -> None:
         default=[],
         help="Path to jieba custom dictionary for bm25 query tokenization. Can be used multiple times.",
     )
+    parser.add_argument("--rerank", action="store_true", help="Apply BGE cross-encoder reranking after retrieval")
+    parser.add_argument("--rerank-candidates", type=int, default=20, help="Candidate pool size to rerank before taking top-k")
+    parser.add_argument("--rerank-model", type=str, default="BAAI/bge-reranker-base")
 
     args = parser.parse_args()
 
@@ -202,6 +205,11 @@ def main() -> None:
 
     if args.no_retrieval and not query_text:
         raise ValueError("--no-retrieval requires --query")
+
+    # When reranking, recall a larger candidate pool first, then rerank down to top_k.
+    final_top_k = args.top_k
+    if args.rerank and not args.no_retrieval:
+        args.top_k = max(args.top_k, args.rerank_candidates)
 
     if args.no_retrieval:
         retrieved = _build_direct_context(query_text=query_text)
@@ -218,6 +226,12 @@ def main() -> None:
         print("\n=== Retrieved Sources ===")
         print("(empty)")
         return
+
+    if args.rerank and not args.no_retrieval:
+        from app.reranker.bge_reranker import BGEReranker
+
+        reranker = BGEReranker(model_name=args.rerank_model)
+        retrieved = reranker.rerank(query=query_text, retrieved=retrieved, top_k=final_top_k)
 
     generator = OpenAICompatibleGenerator()
     result = generator.generate(query=query_text, retrieved_chunks=retrieved)

@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import Any, Dict, List
 
-import cv2
-
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
@@ -13,6 +11,8 @@ def load_video(
     max_frames: int = 120,
     frames_root: str = "data/frames",
 ) -> Dict[str, Any]:
+    import cv2  # lazy: only needed when loading a video
+
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"Video file not found: {file_path}")

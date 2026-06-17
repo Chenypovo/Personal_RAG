@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>记 · 长期记忆问答 Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Noto+Serif+SC:wght@500;700;900&family=Spline+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="glow" aria-hidden="true"></div>
+
+  <main class="shell">
+    <header class="masthead reveal" style="--d:0">
+      <div class="brand">
+        <span class="seal">記</span>
+        <div class="brand-text">
+          <h1>MNEMO</h1>
+          <p>带长期记忆的检索增强 Agent</p>
+        </div>
+      </div>
+      <div class="status"><span class="pulse"></span><span id="status-text">就绪</span></div>
+    </header>
+
+    <div class="board">
+      <!-- conversation -->
+      <section class="thread-wrap reveal" style="--d:1">
+        <div class="thread" id="thread">
+          <div class="msg msg--agent intro">
+            <div class="avatar">記</div>
+            <div class="bubble">
+              <p class="lede">我会记住你告诉我的事，并在之后的对话里想起来。</p>
+              <p class="muted">试试：先说一句「我在南洋理工读人工智能硕士，最近在做带长期记忆的 RAG」，换个话题，再问「我在做什么项目？」</p>
+            </div>
+          </div>
+        </div>
+
+        <form class="composer" id="composer" autocomplete="off">
+          <textarea id="input" rows="1" placeholder="说点什么，或问我关于你的事…"></textarea>
+          <button type="submit" id="send" aria-label="发送">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </form>
+      </section>
+
+      <!-- long-term memory rail: the differentiator -->
+      <aside class="rail reveal" style="--d:2">
+        <div class="rail-head">
+          <h2>长期记忆</h2>
+          <span class="count" id="mem-count">0</span>
+        </div>
+        <p class="rail-sub">对话中沉淀的关于你的事实</p>
+        <ul class="mem-list" id="mem-list">
+          <li class="mem-empty" id="mem-empty">还没有记住任何事。<br/>说点关于你自己的吧。</li>
+        </ul>
+      </aside>
+    </div>
+
+    <footer class="footnote reveal" style="--d:3">
+      检索增强 · 证据约束生成 · 事实抽取 / 归并 / 召回
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

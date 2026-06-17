@@ -1,13 +1,14 @@
 from pathlib import Path
-from pypdf import PdfReader
 
 def load_pdf(file_path: str) -> dict:
+    from pypdf import PdfReader  # lazy: only needed when loading a PDF
+
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"PDF file not found: {file_path}")
     if path.suffix.lower() != ".pdf":
         raise ValueError(f"Not a .pdf file: {file_path}")
-    
+
     reader = PdfReader(str(path))
     parts: list[str] = []
     for page in reader.pages:
