@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Callable, List, Optional, Protocol, Tuple
 
@@ -43,26 +44,31 @@ class MemoryStore:
         self.embed_fn = embed_fn
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(db_path)
+        # check_same_thread=False: the FastAPI server creates the store in one
+        # thread but serves requests from a worker thread. The lock serializes
+        # access so the shared connection is never used concurrently.
+        self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        self._lock = threading.RLock()
         self._init_db()
 
     def _init_db(self) -> None:
-        self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS memory_facts (
-                id TEXT PRIMARY KEY,
-                fact_object TEXT NOT NULL DEFAULT '',
-                fact_content TEXT NOT NULL,
-                visibility TEXT NOT NULL DEFAULT 'PUBLIC',
-                state TEXT NOT NULL DEFAULT 'ACTIVE',
-                source TEXT NOT NULL DEFAULT 'chat',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+        with self._lock:
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS memory_facts (
+                    id TEXT PRIMARY KEY,
+                    fact_object TEXT NOT NULL DEFAULT '',
+                    fact_content TEXT NOT NULL,
+                    visibility TEXT NOT NULL DEFAULT 'PUBLIC',
+                    state TEXT NOT NULL DEFAULT 'ACTIVE',
+                    source TEXT NOT NULL DEFAULT 'chat',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
             )
-            """
-        )
-        self._conn.commit()
+            self._conn.commit()
 
     @staticmethod
     def _row_to_fact(row: sqlite3.Row) -> MemoryFact:
@@ -78,27 +84,29 @@ class MemoryStore:
         )
 
     def add(self, fact: MemoryFact) -> MemoryFact:
-        self._conn.execute(
-            f"INSERT INTO memory_facts ({', '.join(_COLUMNS)}) VALUES ({', '.join(['?'] * len(_COLUMNS))})",
-            (
-                fact.id,
-                fact.fact_object,
-                fact.fact_content,
-                fact.visibility,
-                fact.state,
-                fact.source,
-                fact.created_at,
-                fact.updated_at,
-            ),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                f"INSERT INTO memory_facts ({', '.join(_COLUMNS)}) VALUES ({', '.join(['?'] * len(_COLUMNS))})",
+                (
+                    fact.id,
+                    fact.fact_object,
+                    fact.fact_content,
+                    fact.visibility,
+                    fact.state,
+                    fact.source,
+                    fact.created_at,
+                    fact.updated_at,
+                ),
+            )
+            self._conn.commit()
         if fact.state == "ACTIVE":
             self.vector_index.add(fact.id, self.embed_fn(fact.fact_content))
         return fact
 
     def get(self, fact_id: str) -> Optional[MemoryFact]:
-        cur = self._conn.execute("SELECT * FROM memory_facts WHERE id = ?", (fact_id,))
-        row = cur.fetchone()
+        with self._lock:
+            cur = self._conn.execute("SELECT * FROM memory_facts WHERE id = ?", (fact_id,))
+            row = cur.fetchone()
         return self._row_to_fact(row) if row else None
 
     def update(
@@ -118,11 +126,12 @@ class MemoryStore:
         new_visibility = visibility if visibility is not None else current.visibility
         updated_at = now_iso()
 
-        self._conn.execute(
-            "UPDATE memory_facts SET fact_content = ?, fact_object = ?, visibility = ?, updated_at = ? WHERE id = ?",
-            (new_content, new_object, new_visibility, updated_at, fact_id),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "UPDATE memory_facts SET fact_content = ?, fact_object = ?, visibility = ?, updated_at = ? WHERE id = ?",
+                (new_content, new_object, new_visibility, updated_at, fact_id),
+            )
+            self._conn.commit()
 
         if current.state == "ACTIVE" and fact_content is not None:
             self.vector_index.add(fact_id, self.embed_fn(new_content))
@@ -133,23 +142,28 @@ class MemoryStore:
         current = self.get(fact_id)
         if current is None:
             return False
-        self._conn.execute(
-            "UPDATE memory_facts SET state = 'DELETED', updated_at = ? WHERE id = ?",
-            (now_iso(), fact_id),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "UPDATE memory_facts SET state = 'DELETED', updated_at = ? WHERE id = ?",
+                (now_iso(), fact_id),
+            )
+            self._conn.commit()
         self.vector_index.remove(fact_id)
         return True
 
     def list_active(self) -> List[MemoryFact]:
-        cur = self._conn.execute(
-            "SELECT * FROM memory_facts WHERE state = 'ACTIVE' ORDER BY created_at"
-        )
-        return [self._row_to_fact(r) for r in cur.fetchall()]
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT * FROM memory_facts WHERE state = 'ACTIVE' ORDER BY created_at"
+            )
+            rows = cur.fetchall()
+        return [self._row_to_fact(r) for r in rows]
 
     def list_all(self) -> List[MemoryFact]:
-        cur = self._conn.execute("SELECT * FROM memory_facts ORDER BY created_at")
-        return [self._row_to_fact(r) for r in cur.fetchall()]
+        with self._lock:
+            cur = self._conn.execute("SELECT * FROM memory_facts ORDER BY created_at")
+            rows = cur.fetchall()
+        return [self._row_to_fact(r) for r in rows]
 
     def search(
         self, query: str, top_k: int = 5, min_score: float = 0.0
@@ -173,4 +187,5 @@ class MemoryStore:
         return count
 
     def close(self) -> None:
-        self._conn.close()
+        with self._lock:
+            self._conn.close()

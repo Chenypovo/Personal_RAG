@@ -1,3 +1,5 @@
+import threading
+
 from app.memory.models import MemoryFact
 from app.memory.store import MemoryStore
 from app.memory.vector_index import NumpyVectorIndex
@@ -96,3 +98,24 @@ def test_rebuild_index_from_truth_store(tmp_path):
     count = reopened.rebuild_index()
     assert count == 1
     assert [f.id for f, _ in reopened.search("guitar", top_k=5)] == [fact.id]
+
+
+def test_usable_from_another_thread(tmp_path):
+    # The FastAPI server creates the store in one thread but handles requests in
+    # a worker thread; the store must not raise sqlite "same thread" errors.
+    store = make_store(tmp_path)
+    fact = MemoryFact(fact_content="learning guitar")
+    err = {}
+
+    def worker():
+        try:
+            store.add(fact)
+        except Exception as e:  # noqa: BLE001
+            err["e"] = e
+
+    t = threading.Thread(target=worker)
+    t.start()
+    t.join()
+
+    assert "e" not in err, f"store raised across threads: {err.get('e')}"
+    assert store.get(fact.id) is not None
