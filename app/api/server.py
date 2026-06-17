@@ -19,13 +19,15 @@ class ChatRequest(BaseModel):
     message: str
 
 
-def create_app() -> FastAPI:
+def create_app(bundle: Any = None) -> FastAPI:
     app = FastAPI(title="Personal Memory Agent")
 
     # Build the agent once at startup (uses configured LLM/embedding + persistent memory).
-    bundle = build_memory_agent(
-        use_rerank=os.getenv("USE_RERANK", "").lower() in {"1", "true", "yes"},
-    )
+    # A prebuilt bundle can be injected (e.g. for tests) to avoid needing live creds.
+    if bundle is None:
+        bundle = build_memory_agent(
+            use_rerank=os.getenv("USE_RERANK", "").lower() in {"1", "true", "yes"},
+        )
 
     @app.post("/api/chat")
     def chat(req: ChatRequest) -> Dict[str, Any]:

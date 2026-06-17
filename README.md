@@ -1,19 +1,20 @@
-# Personal RAG
+# Personal RAG + 长期记忆 Agent
 
-一个简洁的个人 RAG 项目，支持文本与多模态检索，以及带长期记忆的对话。  
-核心技术栈：Python + Streamlit + FAISS + BM25 + OpenAI-compatible API / 本地 Hugging Face embedding。
+一个轻量级个人 RAG + 长期记忆 Agent：多模态文档检索增强问答，跨会话沉淀长期记忆，并由路由层自主决定「查文档 / 调记忆 / 写记忆」。  
+核心技术栈：Python + LanceDB/FAISS + BM25 + BGE Reranker + OpenAI-compatible / 本地 HF embedding + FastAPI + Streamlit。
 
 ## 功能
 
-- 文件输入：`txt / md / pdf / image / video`
+- 文件输入：`txt / md / pdf / image(OCR) / video`
 - 文本切块：`chunk_size=700`，`overlap=120`
-- 向量检索：FAISS
+- 向量库：LanceDB（默认）或 FAISS
 - 关键词检索：BM25（`jieba` + regex 保护 token + CJK 2-gram fallback）
-- 混合检索：FAISS + BM25（RRF 融合）
-- 图片 OCR：`rapidocr` 可选注入，缺失时自动降级
-- Reranker：`BGE reranker` 可选开启，`torch/transformers` 懒加载
-- 长期记忆评测：`Recall@K`、`MRR@K`
-- 检索评测：`Recall@K`、`MRR@K`
+- 混合检索：向量 + BM25（RRF 融合），可选 BGE Reranker 精排
+- 图片 OCR：`rapidocr` 注入，缺失/失败自动降级
+- 长期记忆：从对话/笔记抽取事实三元组 → add/update/delete 归并 → SQLite 持久化；提问时召回注入「关于你」上下文
+- 对话 Agent：路由决策（查文档 / 调记忆 / 写记忆）+ 证据约束生成、证据不足拒答
+- Web：FastAPI 后端 + 自研前端（`webui/`），或 Streamlit
+- 评测：检索 & 记忆 `Recall@K` / `MRR@K`，归并决策准确率
 
 ## 安装
 
@@ -63,20 +64,43 @@ python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai -
 混合检索后再精排：
 
 ```bash
-python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 8 --rerank --rerank-top-k 4 --show-chunks
+python scripts/query_demo.py --retrieval-backend hybrid --embed-backend openai --index-path data/index/faiss.index --meta-path data/index/metadatas.json --bm25-path data/index/bm25.json --query "总结这个pdf核心内容，用中文" --top-k 4 --rerank --rerank-candidates 40 --show-chunks
 ```
 
-网页端：
+文档检索网页端（Streamlit）：
 
 ```bash
 streamlit run web/streamlit_app.py
+```
+
+## 对话 Agent（长期记忆）
+
+命令行多轮对话（每轮自动召回记忆、按需检索文档、并从你的话里沉淀新记忆）：
+
+```bash
+python scripts/chat_demo.py
+```
+
+FastAPI 后端 + 自研 Web 前端（聊天，并展示召回到的记忆与本轮记忆写入操作）：
+
+```bash
+uvicorn app.api.server:app --reload --port 8000
+# 浏览器打开 http://127.0.0.1:8000
+```
+
+记忆持久化在 `data/memory/`（SQLite 主存 + 向量索引），跨会话保留。
+
+## 真机自检（OCR / reranker 真模型）
+
+```bash
+python scripts/verify_real.py    # 首次会下载 BGE 模型(~1.1GB) 与 rapidocr 模型
 ```
 
 ## 检索评测
 
 评测脚本：
 
-- [eval_retrieval.py](/D:/personal_rag/scripts/eval_retrieval.py)
+- [eval_retrieval.py](scripts/eval_retrieval.py)
 
 运行示例：
 
@@ -106,9 +130,9 @@ python scripts/eval_memory.py --facts data/eval/memory_facts_example.jsonl --que
    每行一个 JSON，包含 `query_id` + 相关文档标识。  
    你可以用 `doc_id`，或者用 `source + chunk_id`。  
 3. 相关文档标识必须和索引里一致。
-   可从 [metadatas.json](/D:/personal_rag/data/index/metadatas.json) 查看真实 `source/chunk_id`。  
+   可从 [metadatas.json](data/index/metadatas.json) 查看真实 `source/chunk_id`。  
 
 ## 评测集示例（建议将建库后的metadatas.json与原始文档，以及这两个jsonl文件喂给LLM让其生成评测集）
 
-- [queries_example.jsonl](/D:/personal_rag/data/eval/queries_example.jsonl)
-- [qrels_example.jsonl](/D:/personal_rag/data/eval/qrels_example.jsonl)
+- [queries_example.jsonl](data/eval/queries_example.jsonl)
+- [qrels_example.jsonl](data/eval/qrels_example.jsonl)
