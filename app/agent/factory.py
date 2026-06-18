@@ -34,6 +34,7 @@ def _build_doc_retriever(
     use_rerank: bool,
     rerank_model: str,
     rerank_candidates: int,
+    use_parent_child: bool = True,
 ):
     """Vector document retrieval (optionally reranked) with graceful no-docs fallback."""
     if not (Path(index_path).exists() and Path(meta_path).exists()):
@@ -56,8 +57,15 @@ def _build_doc_retriever(
         kept = [c for c in candidates if isinstance(c.get("distance"), (int, float)) and c["distance"] <= max_distance]
         items = kept or candidates
         if reranker is not None:
-            return reranker.rerank(query=query, retrieved=items, top_k=top_k)
-        return items[:top_k]
+            items = reranker.rerank(query=query, retrieved=items, top_k=top_k)
+        else:
+            items = items[:top_k]
+        if use_parent_child:
+            # small-to-big: expand the precise child hits to their parent context
+            from app.retriever.parent_child import expand_to_parents
+
+            items = expand_to_parents(items, store.metadatas)
+        return items
 
     return retrieve
 
@@ -72,6 +80,7 @@ def build_memory_agent(
     use_rerank: bool = False,
     rerank_model: str = "BAAI/bge-reranker-base",
     rerank_candidates: int = 20,
+    use_parent_child: bool = True,
 ) -> AgentBundle:
     """Wire a real MemoryAgent from configured models, with persistent memory."""
     embed_fn = make_embed_fn()
@@ -99,7 +108,8 @@ def build_memory_agent(
         return generator.generate(query=query, retrieved_chunks=chunks, user_memory=user_memory)
 
     retrieve = _build_doc_retriever(
-        index_path, meta_path, embed_fn, top_k, max_distance, use_rerank, rerank_model, rerank_candidates
+        index_path, meta_path, embed_fn, top_k, max_distance, use_rerank,
+        rerank_model, rerank_candidates, use_parent_child,
     )
 
     agent = MemoryAgent(

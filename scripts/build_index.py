@@ -63,7 +63,9 @@ def _normalize_entry(entry: Dict[str, Any], fallback_source: str, fallback_file_
     return out
 
 
-def build_records(file_paths: List[str], chunk_size: int, overlap: int) -> List[Dict[str, Any]]:
+def build_records(
+    file_paths: List[str], chunk_size: int, overlap: int, parent_group: int = 3
+) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
 
     for file_path in file_paths:
@@ -93,9 +95,13 @@ def build_records(file_paths: List[str], chunk_size: int, overlap: int) -> List[
             chunk_size=chunk_size,
             overlap=overlap,
         )
+        group = max(int(parent_group), 1)
         for c in chunks:
             c["modality"] = "text"
             c["file_type"] = doc.get("file_type", "text")
+            # parent-child: group consecutive child chunks into a parent block so a
+            # precise child hit can be expanded back to its surrounding context.
+            c["parent_id"] = f"{c.get('source', file_path)}#p{int(c.get('chunk_id', 0)) // group}"
         records.extend(chunks)
 
     return records
@@ -186,6 +192,7 @@ def main() -> None:
     parser.add_argument("--bm25-path", type=str, default="data/index/bm25.json")
     parser.add_argument("--chunk-size", type=int, default=700)
     parser.add_argument("--overlap", type=int, default=120)
+    parser.add_argument("--parent-group", type=int, default=3, help="Consecutive child chunks per parent block (parent-child retrieval)")
 
     parser.add_argument(
         "--embed-backend",
@@ -218,7 +225,7 @@ def main() -> None:
         raise ValueError(f"No supported files found in: {args.input_dir}")
 
     print(f"Found files: {len(file_paths)}")
-    records = build_records(file_paths, args.chunk_size, args.overlap)
+    records = build_records(file_paths, args.chunk_size, args.overlap, args.parent_group)
     if not records:
         raise ValueError("No records generated from input files")
 
