@@ -110,6 +110,11 @@ def build_records(
 
             assign_pages(chunks, page_offsets)
 
+        # Tag each chunk with its markdown heading breadcrumb (no-op without headings).
+        from app.loader.headings import assign_headings
+
+        assign_headings(chunks, text)
+
         records.extend(chunks)
 
     return records
