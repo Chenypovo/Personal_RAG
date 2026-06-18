@@ -48,7 +48,12 @@ class OpenAICompatibleGenerator:
                     return f"Frame {chunk_id}, {source_name}"
             return f"Image {chunk_id}, {source_name}"
 
-        return f"Chunk {chunk_id}, {source_name}"
+        label = f"Chunk {chunk_id}, {source_name}"
+        ps = meta.get("page_start")
+        pe = meta.get("page_end")
+        if isinstance(ps, int):
+            label += f", p.{ps}" if not isinstance(pe, int) or pe == ps else f", p.{ps}-{pe}"
+        return label
 
     def _build_context(self, retrieved_chunks: List[Dict[str, Any]]) -> str:
         lines: List[str] = []

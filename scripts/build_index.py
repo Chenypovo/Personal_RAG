@@ -102,6 +102,14 @@ def build_records(
             # parent-child: group consecutive child chunks into a parent block so a
             # precise child hit can be expanded back to its surrounding context.
             c["parent_id"] = f"{c.get('source', file_path)}#p{int(c.get('chunk_id', 0)) // group}"
+
+        # PDFs carry page offsets; tag each chunk with the page(s) it spans for citation.
+        page_offsets = doc.get("page_offsets")
+        if page_offsets:
+            from app.loader.pages import assign_pages
+
+            assign_pages(chunks, page_offsets)
+
         records.extend(chunks)
 
     return records
