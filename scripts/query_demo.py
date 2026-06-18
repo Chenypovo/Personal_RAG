@@ -209,6 +209,7 @@ def main() -> None:
     parser.add_argument("--rerank-model", type=str, default="BAAI/bge-reranker-base")
     parser.add_argument("--rerank-device", type=str, default="")
     parser.add_argument("--rerank-batch-size", type=int, default=16)
+    parser.add_argument("--parent-child", action="store_true", help="Expand each child hit to its parent section (small-to-big)")
 
     args = parser.parse_args()
 
@@ -246,6 +247,20 @@ def main() -> None:
             batch_size=args.rerank_batch_size,
         )
         retrieved = reranker.rerank(query=query_text, retrieved=retrieved, top_k=final_top_k)
+
+    if args.parent_child and not args.no_retrieval and retrieved:
+        # small-to-big: expand each precise child hit to its parent section
+        from app.retriever.parent_child import expand_to_parents
+        from app.vectordb import load_doc_store
+
+        all_chunks = load_doc_store(
+            args.vector_store,
+            index_path=args.index_path,
+            meta_path=args.meta_path,
+            lancedb_uri=args.lancedb_uri,
+            lancedb_table=args.lancedb_table,
+        ).all_metadatas()
+        retrieved = expand_to_parents(retrieved, all_chunks)
 
     generator = OpenAICompatibleGenerator()
     result = generator.generate(query=query_text, retrieved_chunks=retrieved)

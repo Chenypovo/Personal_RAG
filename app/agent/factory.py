@@ -26,8 +26,11 @@ class AgentBundle:
 
 
 def _build_doc_retriever(
+    vector_store: str,
     index_path: str,
     meta_path: str,
+    lancedb_uri: str,
+    lancedb_table: str,
     embed_fn,
     top_k: int,
     max_distance: float,
@@ -37,12 +40,21 @@ def _build_doc_retriever(
     use_parent_child: bool = True,
 ):
     """Vector document retrieval (optionally reranked) with graceful no-docs fallback."""
-    if not (Path(index_path).exists() and Path(meta_path).exists()):
+    from app.vectordb import doc_store_exists, load_doc_store
+
+    if not doc_store_exists(
+        vector_store, index_path=index_path, meta_path=meta_path, lancedb_uri=lancedb_uri
+    ):
         return lambda query: []
 
-    from app.vectordb.faiss_store import FaissStore
-
-    store = FaissStore.load(index_path=index_path, meta_path=meta_path)
+    store = load_doc_store(
+        vector_store,
+        index_path=index_path,
+        meta_path=meta_path,
+        lancedb_uri=lancedb_uri,
+        lancedb_table=lancedb_table,
+    )
+    all_chunks = store.all_metadatas() if use_parent_child else []
 
     reranker = None
     if use_rerank:
@@ -61,10 +73,10 @@ def _build_doc_retriever(
         else:
             items = items[:top_k]
         if use_parent_child:
-            # small-to-big: expand the precise child hits to their parent context
+            # small-to-big: expand the precise child hits to their parent section
             from app.retriever.parent_child import expand_to_parents
 
-            items = expand_to_parents(items, store.metadatas)
+            items = expand_to_parents(items, all_chunks)
         return items
 
     return retrieve
@@ -72,8 +84,11 @@ def _build_doc_retriever(
 
 def build_memory_agent(
     memory_dir: str = "data/memory",
+    vector_store: str = "lancedb",
     index_path: str = "data/index/faiss.index",
     meta_path: str = "data/index/metadatas.json",
+    lancedb_uri: str = "data/index/lancedb",
+    lancedb_table: str = "chunks",
     top_k: int = 4,
     max_distance: float = 0.8,
     recall_k: int = 5,
@@ -108,8 +123,8 @@ def build_memory_agent(
         return generator.generate(query=query, retrieved_chunks=chunks, user_memory=user_memory)
 
     retrieve = _build_doc_retriever(
-        index_path, meta_path, embed_fn, top_k, max_distance, use_rerank,
-        rerank_model, rerank_candidates, use_parent_child,
+        vector_store, index_path, meta_path, lancedb_uri, lancedb_table, embed_fn,
+        top_k, max_distance, use_rerank, rerank_model, rerank_candidates, use_parent_child,
     )
 
     agent = MemoryAgent(

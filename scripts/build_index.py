@@ -95,13 +95,9 @@ def build_records(
             chunk_size=chunk_size,
             overlap=overlap,
         )
-        group = max(int(parent_group), 1)
         for c in chunks:
             c["modality"] = "text"
             c["file_type"] = doc.get("file_type", "text")
-            # parent-child: group consecutive child chunks into a parent block so a
-            # precise child hit can be expanded back to its surrounding context.
-            c["parent_id"] = f"{c.get('source', file_path)}#p{int(c.get('chunk_id', 0)) // group}"
 
         # PDFs carry page offsets; tag each chunk with the page(s) it spans for citation.
         page_offsets = doc.get("page_offsets")
@@ -110,10 +106,14 @@ def build_records(
 
             assign_pages(chunks, page_offsets)
 
-        # Tag each chunk with its markdown heading breadcrumb (no-op without headings).
+        # Tag each chunk with its markdown heading breadcrumb (no-op without headings),
+        # then group chunks into parents by section (heading) — falling back to a fixed
+        # window for heading-less docs — for parent-child (small-to-big) retrieval.
         from app.loader.headings import assign_headings
+        from app.retriever.parent_child import assign_parent_ids
 
         assign_headings(chunks, text)
+        assign_parent_ids(chunks, window=parent_group)
 
         records.extend(chunks)
 

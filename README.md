@@ -8,8 +8,9 @@
 
 - **多模态接入**：`txt / md / pdf / image(OCR) / video`
 - **结构感知切块**：词元感知（tiktoken）+ 段落/句子边界；chunk 保留标题层级、页码、块边界、多模态路径等 metadata
-- **混合检索**：向量（LanceDB/FAISS）+ BM25 经 RRF 融合 → BGE Reranker 精排
-- **parent-child 召回**：索引小子块保精度，命中后扩展回父块补全上下文（父块去重）
+- **向量库**：LanceDB 统一行存（id/vector/text/metadata），与 FAISS（IndexFlatL2）两套后端结果等价；Agent 默认走 LanceDB
+- **混合检索**：向量 + BM25 经 RRF 融合 → BGE Reranker 精排
+- **parent-child 召回**：索引小子块保精度，命中后按**标题章节**扩展回父块（无标题则相邻窗口），父块去重
 - **受控生成**：证据约束回答、按 source/chunk 展示依据，证据不足时拒答
 - **长期记忆**：从对话抽取事实三元组 → LLM 判定 add/update/delete 归并 → SQLite + 向量索引持久化；提问时召回注入
 - **对话 Agent**：路由决策 + 记忆增强生成
@@ -60,11 +61,15 @@ python scripts/eval_memory.py --facts data/eval/memory_facts_synth.jsonl --queri
 
 实验结果：
 
-| 检索（本地论文集） | Recall@1 | MRR@4 |  | 记忆召回（31事实/20查询，带干扰） | Recall@1 | Recall@3 |
-| --- | ---: | ---: | --- | --- | ---: | ---: |
-| 向量 | 0.0882 | 0.1373 |  | | | |
-| BM25 | 0.4706 | 0.7010 |  | | | |
-| **混合** | **0.5294** | **0.7794** |  | **bge-small-zh** | **0.90** | **0.95** |
+检索（合成语料 40 查询，本地 bge-small，LanceDB；FAISS 数字逐位相同）：
+
+| Backend | Recall@1 | Recall@4 | MRR@4 |
+| --- | ---: | ---: | ---: |
+| 向量 | 0.3125 | 0.7625 | 0.5437 |
+| BM25 | 0.4500 | 0.8125 | 0.6417 |
+| **混合** | 0.4000 | **0.9375** | **0.6604** |
+
+记忆召回（31 事实 / 20 查询，带干扰项，本地 bge-small）：**Recall@1=0.90 · Recall@3=0.95 · MRR@1=0.90**
 
 > 评测集为自建标注集（`data/eval/`）。可把建库后的 `metadatas.json` + 原文喂给 LLM 自动生成 `queries/qrels`。
 

@@ -25,6 +25,10 @@ class FaissStore:
         self.index.add(arr)
         self.metadatas.extend(metadatas)
 
+    def all_metadatas(self) -> List[Dict[str, Any]]:
+        """Every stored chunk's metadata (used by parent-child expansion)."""
+        return list(self.metadatas)
+
     def search(self, query_vector: List[float], top_k: int = 4) -> List[Dict[str, Any]]:
         if self.index.ntotal == 0:
             return []

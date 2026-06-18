@@ -12,6 +12,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from app.embedder.embedder import CLIPMultimodalEmbedder, LocalTextEmbedder, OpenAICompatibleEmbedder, build_text_embedder  # noqa: E402
+from app.vectordb import load_doc_store  # noqa: E402
 from app.vectordb.bm25_store import BM25Store  # noqa: E402
 from app.vectordb.faiss_store import FaissStore  # noqa: E402
 
@@ -397,8 +398,11 @@ def main() -> None:
     parser.add_argument("--backend", type=str, default="all", choices=["vector", "bm25", "hybrid", "all"])
     parser.add_argument("--ks", type=str, default="1,4,10", help="comma-separated K values")
 
+    parser.add_argument("--vector-store", type=str, default="faiss", choices=["faiss", "lancedb"])
     parser.add_argument("--index-path", type=str, default="data/index/faiss.index")
     parser.add_argument("--meta-path", type=str, default="data/index/metadatas.json")
+    parser.add_argument("--lancedb-uri", type=str, default="data/index/lancedb")
+    parser.add_argument("--lancedb-table", type=str, default="chunks")
     parser.add_argument("--bm25-path", type=str, default="data/index/bm25.json")
 
     parser.add_argument("--embed-backend", type=str, default="openai", choices=["openai", "local", "clip"])
@@ -430,7 +434,17 @@ def main() -> None:
     need_bm25 = any(b in ("bm25", "hybrid") for b in backends)
     need_embed = any(b in ("vector", "hybrid") for b in backends)
 
-    store = FaissStore.load(args.index_path, args.meta_path) if need_faiss else None
+    store = (
+        load_doc_store(
+            args.vector_store,
+            index_path=args.index_path,
+            meta_path=args.meta_path,
+            lancedb_uri=args.lancedb_uri,
+            lancedb_table=args.lancedb_table,
+        )
+        if need_faiss
+        else None
+    )
     bm25 = BM25Store.load(args.bm25_path, user_dict_paths=args.jieba_user_dict) if need_bm25 else None
 
     embedder_openai: Optional[Union[OpenAICompatibleEmbedder, LocalTextEmbedder]] = None

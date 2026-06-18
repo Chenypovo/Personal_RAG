@@ -1,4 +1,4 @@
-from app.retriever.parent_child import expand_to_parents
+from app.retriever.parent_child import assign_parent_ids, expand_to_parents
 
 
 def chunk(source, cid, pid, text):
@@ -51,3 +51,21 @@ def test_carries_score_and_child_ids():
     out = expand_to_parents([hit(ALL[1], distance=0.42)], ALL)
     assert out[0]["distance"] == 0.42
     assert set(out[0]["metadata"]["child_chunk_ids"]) == {0, 1, 2}
+
+
+def test_parent_id_groups_by_heading_section():
+    chunks = [
+        {"source": "a.md", "chunk_id": 0, "heading": "Doc > Sec A"},
+        {"source": "a.md", "chunk_id": 1, "heading": "Doc > Sec A"},
+        {"source": "a.md", "chunk_id": 2, "heading": "Doc > Sec B"},
+    ]
+    assign_parent_ids(chunks, window=3)
+    assert chunks[0]["parent_id"] == chunks[1]["parent_id"] == "a.md::Doc > Sec A"
+    assert chunks[2]["parent_id"] == "a.md::Doc > Sec B"
+
+
+def test_parent_id_falls_back_to_window_without_heading():
+    chunks = [{"source": "t.txt", "chunk_id": i} for i in range(4)]
+    assign_parent_ids(chunks, window=2)
+    assert chunks[0]["parent_id"] == chunks[1]["parent_id"] == "t.txt#p0"
+    assert chunks[2]["parent_id"] == chunks[3]["parent_id"] == "t.txt#p1"

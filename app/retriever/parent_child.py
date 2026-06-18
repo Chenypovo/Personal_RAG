@@ -3,6 +3,25 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 
+def assign_parent_ids(chunks: List[Dict[str, Any]], window: int = 3) -> None:
+    """Assign each chunk a ``parent_id`` for parent-child (small-to-big) retrieval.
+
+    Section-aware: chunks under the same markdown heading share a parent (the
+    section), so a precise child hit expands back to its whole section. Documents
+    without headings (plain text / heading-less PDFs) fall back to a fixed window
+    of consecutive chunks — i.e. "回填父级章节 或 相邻上下文".
+    """
+    w = max(int(window), 1)
+    for c in chunks:
+        source = str(c.get("source", "unknown"))
+        heading = c.get("heading")
+        if isinstance(heading, str) and heading.strip():
+            c["parent_id"] = f"{source}::{heading.strip()}"
+        else:
+            cid = int(c.get("chunk_id", 0))
+            c["parent_id"] = f"{source}#p{cid // w}"
+
+
 def _parent_key(meta: Dict[str, Any]) -> str:
     """Parent identifier for a chunk; falls back to the chunk being its own parent."""
     pid = meta.get("parent_id")

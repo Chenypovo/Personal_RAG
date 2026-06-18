@@ -72,6 +72,17 @@ class LanceDBStore:
         self._db = db
         self._table = db.create_table(self.table_name, data=rows, mode="overwrite")
 
+    def _ensure_table(self) -> None:
+        if self._table is None:
+            db = self._connect(self.uri)
+            self._db = db
+            self._table = db.open_table(self.table_name)
+
+    def all_metadatas(self) -> List[Dict[str, Any]]:
+        """Every stored chunk's metadata (reconstructed from the unified row)."""
+        self._ensure_table()
+        return [self._metadata_from_row(row) for row in self._table.to_arrow().to_pylist()]
+
     def search(self, query_vector: List[float], top_k: int = 4) -> List[Dict[str, Any]]:
         if self._table is None:
             db = self._connect(self.uri)
