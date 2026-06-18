@@ -6,10 +6,11 @@
 ## 功能
 
 - 文件输入：`txt / md / pdf / image(OCR) / video`
-- 文本切块：`chunk_size=700`，`overlap=120`
+- 结构感知切块：词元感知（tiktoken）+ 段落/句子边界；每个 chunk 保留 metadata：**标题层级**（heading 面包屑）、**页码**（PDF）、段落/块边界、多模态路径
 - 向量库：LanceDB（默认）或 FAISS
 - 关键词检索：BM25（`jieba` + regex 保护 token + CJK 2-gram fallback）
 - 混合检索：向量 + BM25（RRF 融合），可选 BGE Reranker 精排
+- **parent-child 召回**：索引小子块保证精度，命中后扩展回父块（相邻子块）补全上下文，父块去重
 - 图片 OCR：`rapidocr` 注入，缺失/失败自动降级
 - 长期记忆：从对话/笔记抽取事实三元组 → add/update/delete 归并 → SQLite 持久化；提问时召回注入「关于你」上下文
 - 对话 Agent：路由决策（查文档 / 调记忆 / 写记忆）+ 证据约束生成、证据不足拒答
