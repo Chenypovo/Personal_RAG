@@ -7,7 +7,7 @@
 ## 功能
 
 - **多模态接入**：`txt / md / pdf / image(OCR) / video`
-- **结构感知切块**：词元感知（tiktoken）+ 段落/句子边界；chunk 保留标题层级、页码、块边界、多模态路径等 metadata
+- **结构感知切块**：词元感知（tiktoken）+ 段落/句子边界；chunk 保留**标题层级**、**页码**、**块类型**（heading/list/table/code/paragraph）、切分边界、多模态路径等 metadata
 - **向量库**：LanceDB 统一行存（id/vector/text/metadata），与 FAISS（IndexFlatL2）两套后端结果等价；Agent 默认走 LanceDB
 - **混合检索**：向量 + BM25 经 RRF 融合 → BGE Reranker 精排
 - **parent-child 召回**：索引小子块保精度，命中后按**标题章节**扩展回父块（无标题则相邻窗口），父块去重

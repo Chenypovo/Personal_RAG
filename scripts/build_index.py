@@ -109,10 +109,12 @@ def build_records(
         # Tag each chunk with its markdown heading breadcrumb (no-op without headings),
         # then group chunks into parents by section (heading) — falling back to a fixed
         # window for heading-less docs — for parent-child (small-to-big) retrieval.
+        from app.chunker.block_type import assign_block_types
         from app.loader.headings import assign_headings
         from app.retriever.parent_child import assign_parent_ids
 
         assign_headings(chunks, text)
+        assign_block_types(chunks)
         assign_parent_ids(chunks, window=parent_group)
 
         records.extend(chunks)
