@@ -309,11 +309,15 @@ def _evaluate_backend(
     vector_k: int,
     bm25_k: int,
     rrf_k: int,
+    reranker: Any = None,
+    rerank_candidates: int = 20,
 ) -> Dict[str, Any]:
     recalls: Dict[int, List[float]] = {k: [] for k in ks}
     mrrs: Dict[int, List[float]] = {k: [] for k in ks}
     per_query: List[Dict[str, Any]] = []
     skipped_no_qrels = 0
+    # When reranking, recall a larger candidate pool first, then rerank down.
+    retrieve_k = max(top_k_max, rerank_candidates) if reranker is not None else top_k_max
 
     for q in queries:
         gold = qrels.get(q.query_id, set())
@@ -331,7 +335,7 @@ def _evaluate_backend(
                 embedder_clip=embedder_clip,
                 query=q.query,
                 query_image=q.query_image,
-                top_k=top_k_max,
+                top_k=retrieve_k,
                 candidate_k=candidate_k,
                 max_distance=max_distance,
                 strict=strict,
@@ -342,7 +346,7 @@ def _evaluate_backend(
             items = _retrieve_bm25(
                 bm25=bm25,
                 query=q.query,
-                top_k=top_k_max,
+                top_k=retrieve_k,
             )
         elif backend == "hybrid":
             if store is None or bm25 is None:
@@ -355,7 +359,7 @@ def _evaluate_backend(
                 embedder_clip=embedder_clip,
                 query=q.query,
                 query_image=q.query_image,
-                top_k=top_k_max,
+                top_k=retrieve_k,
                 candidate_k=candidate_k,
                 max_distance=max_distance,
                 strict=strict,
@@ -365,6 +369,9 @@ def _evaluate_backend(
             )
         else:
             raise ValueError(f"Unsupported backend: {backend}")
+
+        if reranker is not None and items:
+            items = reranker.rerank(query=q.query, retrieved=items, top_k=top_k_max)
 
         pred = _extract_doc_ids(items)
         row: Dict[str, Any] = {"query_id": q.query_id, "pred_doc_ids": pred}
@@ -420,6 +427,12 @@ def main() -> None:
     parser.add_argument("--rrf-k", type=int, default=60, help="hybrid RRF constant")
     parser.add_argument("--jieba-user-dict", action="append", default=[])
 
+    parser.add_argument("--rerank", action="store_true", help="Apply BGE cross-encoder reranking on the candidate pool")
+    parser.add_argument("--rerank-model", type=str, default="BAAI/bge-reranker-base")
+    parser.add_argument("--rerank-candidates", type=int, default=20, help="Candidate pool size to rerank before scoring")
+    parser.add_argument("--rerank-device", type=str, default="")
+    parser.add_argument("--rerank-batch-size", type=int, default=16)
+
     parser.add_argument("--output-json", type=str, default="", help="optional output json report path")
     args = parser.parse_args()
 
@@ -461,6 +474,16 @@ def main() -> None:
                 batch_size=args.clip_batch_size,
             )
 
+    reranker = None
+    if args.rerank:
+        from app.reranker.bge_reranker import BGEReranker
+
+        reranker = BGEReranker(
+            model_name=args.rerank_model,
+            device=args.rerank_device or None,
+            batch_size=args.rerank_batch_size,
+        )
+
     reports: List[Dict[str, Any]] = []
     for backend in backends:
         report = _evaluate_backend(
@@ -480,6 +503,8 @@ def main() -> None:
             vector_k=args.vector_k,
             bm25_k=args.bm25_k,
             rrf_k=args.rrf_k,
+            reranker=reranker,
+            rerank_candidates=args.rerank_candidates,
         )
         reports.append(report)
 

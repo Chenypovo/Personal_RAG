@@ -61,13 +61,15 @@ python scripts/eval_memory.py --facts data/eval/memory_facts_synth.jsonl --queri
 
 实验结果：
 
-检索（合成语料 40 查询，本地 bge-small，LanceDB；FAISS 数字逐位相同）：
+检索（合成语料 40 查询，本地 bge-small，LanceDB；FAISS 数字相同）。`--rerank` 列为完整链路（候选池→BGE 精排）：
 
-| Backend | Recall@1 | Recall@4 | MRR@4 |
-| --- | ---: | ---: | ---: |
-| 向量 | 0.3125 | 0.7625 | 0.5437 |
-| BM25 | 0.4500 | 0.8125 | 0.6417 |
-| **混合** | 0.4000 | **0.9375** | **0.6604** |
+| Backend | Recall@1 | MRR@4 | +rerank Recall@1 | +rerank MRR@4 |
+| --- | ---: | ---: | ---: | ---: |
+| 向量 | 0.3125 | 0.5437 | 0.4750 | 0.6792 |
+| BM25 | 0.4500 | 0.6417 | 0.5000 | 0.7042 |
+| **混合** | 0.4000 | 0.6604 | **0.5000** | **0.7042** |
+
+完整链路（混合 + BGE 精排）：**Recall@1=0.50 · Recall@4=0.89 · MRR@4=0.70**。精排稳定提升 top-1 命中。
 
 记忆召回（31 事实 / 20 查询，带干扰项，本地 bge-small）：**Recall@1=0.90 · Recall@3=0.95 · MRR@1=0.90**
 
