@@ -31,15 +31,20 @@ def _build_doc_retriever(
     meta_path: str,
     lancedb_uri: str,
     lancedb_table: str,
+    bm25_path: str,
     embed_fn,
     top_k: int,
     max_distance: float,
     use_rerank: bool,
     rerank_model: str,
     rerank_candidates: int,
+    vector_k: int,
+    bm25_k: int,
+    rrf_k: int,
     use_parent_child: bool = True,
 ):
-    """Vector document retrieval (optionally reranked) with graceful no-docs fallback."""
+    """Hybrid (vector + BM25 + RRF) document retrieval, optionally reranked, then
+    expanded to parent sections — with a graceful no-docs fallback."""
     from app.vectordb import doc_store_exists, load_doc_store
 
     if not doc_store_exists(
@@ -56,6 +61,12 @@ def _build_doc_retriever(
     )
     all_chunks = store.all_metadatas() if use_parent_child else []
 
+    bm25 = None
+    if Path(bm25_path).exists():
+        from app.vectordb.bm25_store import BM25Store
+
+        bm25 = BM25Store.load(bm25_path)
+
     reranker = None
     if use_rerank:
         from app.reranker.bge_reranker import BGEReranker
@@ -63,15 +74,29 @@ def _build_doc_retriever(
         reranker = BGEReranker(model_name=rerank_model)
 
     def retrieve(query: str) -> List[Dict[str, Any]]:
-        vec = embed_fn(query)
         pool = max(top_k, rerank_candidates) if use_rerank else max(top_k, 20)
-        candidates = store.search(query_vector=vec, top_k=pool)
-        kept = [c for c in candidates if isinstance(c.get("distance"), (int, float)) and c["distance"] <= max_distance]
-        items = kept or candidates
+
+        # vector branch (distance-filtered, with fallback so a strict threshold
+        # never wipes out recall)
+        vec = embed_fn(query)
+        vec_candidates = store.search(query_vector=vec, top_k=max(pool, vector_k))
+        kept = [c for c in vec_candidates if isinstance(c.get("distance"), (int, float)) and c["distance"] <= max_distance]
+        vec_items = kept or vec_candidates
+
+        if bm25 is not None:
+            # hybrid: fuse vector + BM25 with RRF
+            from app.retriever.hybrid import rrf_fuse
+
+            bm25_items = bm25.search(query=query, top_k=max(pool, bm25_k))
+            items = rrf_fuse(vec_items, bm25_items, rrf_k=rrf_k, top_k=pool)
+        else:
+            items = vec_items[:pool]
+
         if reranker is not None:
             items = reranker.rerank(query=query, retrieved=items, top_k=top_k)
         else:
             items = items[:top_k]
+
         if use_parent_child:
             # small-to-big: expand the precise child hits to their parent section
             from app.retriever.parent_child import expand_to_parents
@@ -89,12 +114,16 @@ def build_memory_agent(
     meta_path: str = "data/index/metadatas.json",
     lancedb_uri: str = "data/index/lancedb",
     lancedb_table: str = "chunks",
+    bm25_path: str = "data/index/bm25.json",
     top_k: int = 4,
     max_distance: float = 0.8,
     recall_k: int = 5,
     use_rerank: bool = False,
     rerank_model: str = "BAAI/bge-reranker-base",
     rerank_candidates: int = 20,
+    vector_k: int = 20,
+    bm25_k: int = 20,
+    rrf_k: int = 60,
     use_parent_child: bool = True,
 ) -> AgentBundle:
     """Wire a real MemoryAgent from configured models, with persistent memory."""
@@ -123,8 +152,9 @@ def build_memory_agent(
         return generator.generate(query=query, retrieved_chunks=chunks, user_memory=user_memory)
 
     retrieve = _build_doc_retriever(
-        vector_store, index_path, meta_path, lancedb_uri, lancedb_table, embed_fn,
-        top_k, max_distance, use_rerank, rerank_model, rerank_candidates, use_parent_child,
+        vector_store, index_path, meta_path, lancedb_uri, lancedb_table, bm25_path, embed_fn,
+        top_k, max_distance, use_rerank, rerank_model, rerank_candidates,
+        vector_k, bm25_k, rrf_k, use_parent_child,
     )
 
     agent = MemoryAgent(
