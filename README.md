@@ -53,25 +53,33 @@ python scripts/chat_demo.py
 ## 评测
 
 ```bash
-# 检索：对比 向量 / BM25 / 混合
-python scripts/eval_retrieval.py --queries data/eval/queries_example.jsonl --qrels data/eval/qrels_example.jsonl --backend all --ks 1,4 --embed-backend local
-# 记忆召回
-python scripts/eval_memory.py --facts data/eval/memory_facts_synth.jsonl --queries data/eval/memory_queries_synth.jsonl --qrels data/eval/memory_qrels_synth.jsonl --ks 1,3
+# 检索 — 无精排基线（→ data/eval/retrieval_synth_report.json）
+python scripts/eval_retrieval.py --vector-store lancedb --lancedb-uri data/index_eval/lancedb \
+  --bm25-path data/index_eval/bm25.json --queries data/eval/queries_synth.jsonl \
+  --qrels data/eval/qrels_synth.jsonl --backend all --ks 1,4 --embed-backend local --no-strict
+
+# 检索 — 完整链路，加 --rerank（→ data/eval/retrieval_synth_rerank_report.json）
+python scripts/eval_retrieval.py --vector-store lancedb --lancedb-uri data/index_eval/lancedb \
+  --bm25-path data/index_eval/bm25.json --queries data/eval/queries_synth.jsonl \
+  --qrels data/eval/qrels_synth.jsonl --backend all --ks 1,4 --embed-backend local --no-strict --rerank
+
+# 记忆召回（→ data/eval/memory_synth_report.json）
+python scripts/eval_memory.py --facts data/eval/memory_facts_synth.jsonl \
+  --queries data/eval/memory_queries_synth.jsonl --qrels data/eval/memory_qrels_synth.jsonl --ks 1,3
 ```
 
-实验结果：
+实验结果（合成语料 40 查询，本地 bge-small，LanceDB；FAISS 数字逐位相同）。
+左两列＝无精排基线（`retrieval_synth_report.json`），右两列＝加 `--rerank` 完整链路（`retrieval_synth_rerank_report.json`）：
 
-检索（合成语料 40 查询，本地 bge-small，LanceDB；FAISS 数字相同）。`--rerank` 列为完整链路（候选池→BGE 精排）：
-
-| Backend | Recall@1 | MRR@4 | +rerank Recall@1 | +rerank MRR@4 |
+| Backend | 基线 Recall@1 | 基线 MRR@4 | +精排 Recall@1 | +精排 MRR@4 |
 | --- | ---: | ---: | ---: | ---: |
 | 向量 | 0.3125 | 0.5437 | 0.4750 | 0.6792 |
 | BM25 | 0.4500 | 0.6417 | 0.5000 | 0.7042 |
 | **混合** | 0.4000 | 0.6604 | **0.5000** | **0.7042** |
 
-完整链路（混合 + BGE 精排）：**Recall@1=0.50 · Recall@4=0.89 · MRR@4=0.70**。精排稳定提升 top-1 命中。
-
-记忆召回（31 事实 / 20 查询，带干扰项，本地 bge-small）：**Recall@1=0.90 · Recall@3=0.95 · MRR@1=0.90**
+- **`eval_retrieval.py` 默认不精排；加 `--rerank` 才走 BGE 精排。** 上表两组分别对应两份报告文件。
+- 完整链路（混合 + BGE 精排）：**Recall@1=0.50 · Recall@4=0.89 · MRR@4=0.70**；精排把 top-1 命中从 0.40 提到 0.50。
+- 记忆召回（`memory_synth_report.json`，31 事实 / 20 查询带干扰，**与 reranker 无关**）：**Recall@1=0.90 · Recall@3=0.95 · MRR@1=0.90**
 
 > 评测集为自建标注集（`data/eval/`）。可把建库后的 `metadatas.json` + 原文喂给 LLM 自动生成 `queries/qrels`。
 
