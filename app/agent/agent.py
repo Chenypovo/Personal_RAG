@@ -47,6 +47,7 @@ class MemoryAgent:
         generate_fn: GenerateFn,
         recall_k: int = 5,
         message_time_fn: Callable[[], str] = _today,
+        history_max_turns: int = 6,
     ) -> None:
         self.router = router
         self.store = store
@@ -56,9 +57,20 @@ class MemoryAgent:
         self.generate_fn = generate_fn
         self.recall_k = recall_k
         self.message_time_fn = message_time_fn
+        self.history_max_turns = max(int(history_max_turns), 0)
+        # recent (user, assistant) turns, for context-aware routing / query rewrite
+        self.history: List[tuple[str, str]] = []
+
+    def _format_history(self) -> str:
+        lines: List[str] = []
+        for user, assistant in self.history[-self.history_max_turns:]:
+            lines.append(f"用户: {user}")
+            lines.append(f"助手: {assistant}")
+        return "\n".join(lines)
 
     def chat(self, user_msg: str) -> AgentResult:
-        decision = self.router.route(user_msg)
+        history_str = self._format_history()
+        decision = self.router.route(user_msg, history=history_str or None)
 
         recalled: List[MemoryFact] = []
         if decision.use_memory:
@@ -76,8 +88,13 @@ class MemoryAgent:
             facts = self.extractor.extract(user_msg, source="chat", message_time=self.message_time_fn())
             ops = self.merger.merge(facts, source="chat")
 
+        answer = gen.get("answer", "")
+        if self.history_max_turns > 0:
+            self.history.append((user_msg, answer))
+            self.history = self.history[-self.history_max_turns:]
+
         return AgentResult(
-            answer=gen.get("answer", ""),
+            answer=answer,
             sources=gen.get("sources", []),
             recalled_memories=recalled,
             memory_ops=ops,

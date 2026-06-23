@@ -105,3 +105,45 @@ def test_route_off_skips_docs_memory_and_write(tmp_path):
     assert captured["gen_memory"] == ""            # no memory injected
     assert store.list_active() == []               # nothing written
     assert result.memory_ops == []
+
+
+def _history_agent(tmp_path, router_prompts, history_max_turns=6):
+    store = MemoryStore(
+        db_path=str(tmp_path / "mem.db"),
+        vector_index=NumpyVectorIndex(dim=len(VOCAB)),
+        embed_fn=fake_embed,
+    )
+
+    def router_complete(system_prompt, user_prompt):
+        router_prompts.append(user_prompt)
+        return '{"use_docs": false, "use_memory": false, "write_memory": false, "rewritten_query": "q"}'
+
+    return MemoryAgent(
+        router=Router(complete_fn=router_complete),
+        store=store,
+        extractor=MemoryExtractor(complete_fn=const("[]")),
+        merger=MemoryMerger(store=store, complete_fn=const('{"operations": []}')),
+        retrieve_docs_fn=lambda q: [],
+        generate_fn=lambda q, c, m: {"answer": "ANSWER-ABOUT-GUITAR", "sources": []},
+        history_max_turns=history_max_turns,
+    )
+
+
+def test_router_sees_prior_turn_on_later_turns(tmp_path):
+    prompts = []
+    agent = _history_agent(tmp_path, prompts)
+
+    agent.chat("我在学吉他")     # turn 1: no history
+    agent.chat("那要练多久")     # turn 2: should carry turn-1 context
+
+    assert prompts[0] == "我在学吉他"                  # first turn routes on the msg alone
+    assert "我在学吉他" in prompts[1]                  # second turn sees prior user message
+    assert "ANSWER-ABOUT-GUITAR" in prompts[1]         # ... and prior assistant answer
+
+
+def test_history_is_bounded(tmp_path):
+    prompts = []
+    agent = _history_agent(tmp_path, prompts, history_max_turns=2)
+    for i in range(5):
+        agent.chat(f"msg{i}")
+    assert len(agent.history) <= 2
