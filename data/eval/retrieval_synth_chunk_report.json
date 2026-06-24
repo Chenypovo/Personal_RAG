@@ -1,0 +1,1599 @@
+{
+  "queries": "data/eval/queries_synth.jsonl",
+  "qrels": "data/eval/qrels_synth_chunk.jsonl",
+  "ks": [
+    1,
+    4
+  ],
+  "backend": "all",
+  "reports": [
+    {
+      "backend": "vector",
+      "n_queries": 40,
+      "n_eval_queries": 40,
+      "n_skipped_no_qrels": 0,
+      "metrics": {
+        "recall@1": 0.5125,
+        "mrr@1": 0.55,
+        "recall@4": 0.8375,
+        "mrr@4": 0.6895833333333332
+      },
+      "per_query": [
+        {
+          "query_id": "q001",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/reranker_design.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q002",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.0,
+          "mrr@4": 0.0
+        },
+        {
+          "query_id": "q003",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/reranker_design.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q004",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/memory_agent.md#1"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q005",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/chunking_strategy.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q006",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/reranker_design.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q007",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q008",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q009",
+          "pred_doc_ids": [
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.0,
+          "mrr@4": 0.0
+        },
+        {
+          "query_id": "q010",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.0,
+          "mrr@4": 0.0
+        },
+        {
+          "query_id": "q011",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/evidence_generation.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.0,
+          "mrr@4": 0.0
+        },
+        {
+          "query_id": "q012",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/deployment_notes.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.0,
+          "mrr@4": 0.0
+        },
+        {
+          "query_id": "q013",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/evidence_generation.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q014",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q015",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q016",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/evidence_generation.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.5,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q017",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q018",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/reranker_design.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.25
+        },
+        {
+          "query_id": "q019",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/memory_agent.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q020",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q021",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q022",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q023",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q024",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 0.5,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q025",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/memory_agent.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q026",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q027",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q028",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q029",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/chunking_strategy.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q030",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q031",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/deployment_notes.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q032",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q033",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/evidence_generation.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q034",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/deployment_notes.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q035",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q036",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/deployment_notes.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q037",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/deployment_notes.md#0",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q038",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/deployment_notes.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/memory_agent.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q039",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/evidence_generation.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.5,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q040",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/memory_agent.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        }
+      ]
+    },
+    {
+      "backend": "bm25",
+      "n_queries": 40,
+      "n_eval_queries": 40,
+      "n_skipped_no_qrels": 0,
+      "metrics": {
+        "recall@1": 0.7375,
+        "mrr@1": 0.775,
+        "recall@4": 0.9,
+        "mrr@4": 0.8520833333333332
+      },
+      "per_query": [
+        {
+          "query_id": "q001",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q002",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/eval_methodology.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q003",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q004",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 0.5,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q005",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q006",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.0,
+          "mrr@4": 0.0
+        },
+        {
+          "query_id": "q007",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/evidence_generation.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q008",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q009",
+          "pred_doc_ids": [
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/memory_agent.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q010",
+          "pred_doc_ids": [
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/chunking_strategy.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.5,
+          "mrr@4": 0.25
+        },
+        {
+          "query_id": "q011",
+          "pred_doc_ids": [
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q012",
+          "pred_doc_ids": [
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/deployment_notes.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q013",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q014",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/reranker_design.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q015",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q016",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#0"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q017",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q018",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q019",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q020",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q021",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q022",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/eval_methodology.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q023",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/evidence_generation.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q024",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q025",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/evidence_generation.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q026",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/reranker_design.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.0,
+          "mrr@4": 0.0
+        },
+        {
+          "query_id": "q027",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/evidence_generation.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q028",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.5,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q029",
+          "pred_doc_ids": [
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q030",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q031",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/deployment_notes.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q032",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/eval_methodology.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q033",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q034",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q035",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q036",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q037",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q038",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/deployment_notes.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q039",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/deployment_notes.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 0.5,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q040",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        }
+      ]
+    },
+    {
+      "backend": "hybrid",
+      "n_queries": 40,
+      "n_eval_queries": 40,
+      "n_skipped_no_qrels": 0,
+      "metrics": {
+        "recall@1": 0.6,
+        "mrr@1": 0.65,
+        "recall@4": 1.0,
+        "mrr@4": 0.8041666666666666
+      },
+      "per_query": [
+        {
+          "query_id": "q001",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q002",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/eval_methodology.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q003",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q004",
+          "pred_doc_ids": [
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q005",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q006",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q007",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/eval_methodology.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q008",
+          "pred_doc_ids": [
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/reranker_design.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q009",
+          "pred_doc_ids": [
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/memory_agent.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q010",
+          "pred_doc_ids": [
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/chunking_strategy.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q011",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q012",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/deployment_notes.md#0",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q013",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q014",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/reranker_design.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q015",
+          "pred_doc_ids": [
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q016",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q017",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/deployment_notes.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q018",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q019",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q020",
+          "pred_doc_ids": [
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/reranker_design.md#0",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q021",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q022",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/eval_methodology.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q023",
+          "pred_doc_ids": [
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/memory_agent.md#1",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q024",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/memory_agent.md#0",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q025",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/rag_architecture.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/eval_methodology.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q026",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q027",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q028",
+          "pred_doc_ids": [
+            "data/uploads_eval/evidence_generation.md#0",
+            "data/uploads_eval/evidence_generation.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 0.5,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q029",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/eval_methodology.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q030",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q031",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/deployment_notes.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q032",
+          "pred_doc_ids": [
+            "data/uploads_eval/eval_methodology.md#1",
+            "data/uploads_eval/chunking_strategy.md#1",
+            "data/uploads_eval/eval_methodology.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q033",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/lancedb_vector_store.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q034",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/rag_architecture.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q035",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/rag_architecture.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q036",
+          "pred_doc_ids": [
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#0",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/deployment_notes.md#1"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.5
+        },
+        {
+          "query_id": "q037",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/multimodal_ingestion.md#1",
+            "data/uploads_eval/deployment_notes.md#0",
+            "data/uploads_eval/multimodal_ingestion.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q038",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/deployment_notes.md#0",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/lancedb_vector_store.md#1"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        },
+        {
+          "query_id": "q039",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/rag_architecture.md#0",
+            "data/uploads_eval/deployment_notes.md#0",
+            "data/uploads_eval/eval_methodology.md#0"
+          ],
+          "recall@1": 0.0,
+          "mrr@1": 0.0,
+          "recall@4": 1.0,
+          "mrr@4": 0.3333333333333333
+        },
+        {
+          "query_id": "q040",
+          "pred_doc_ids": [
+            "data/uploads_eval/deployment_notes.md#1",
+            "data/uploads_eval/hybrid_retrieval.md#1",
+            "data/uploads_eval/reranker_design.md#1",
+            "data/uploads_eval/memory_agent.md#0"
+          ],
+          "recall@1": 1.0,
+          "mrr@1": 1.0,
+          "recall@4": 1.0,
+          "mrr@4": 1.0
+        }
+      ]
+    }
+  ]
+}

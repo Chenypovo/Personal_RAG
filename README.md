@@ -53,31 +53,28 @@ python scripts/chat_demo.py
 ## 评测
 
 ```bash
-# 检索 — 无精排基线（→ data/eval/retrieval_synth_report.json）
+# 检索（chunk 级 qrels，标到含答案的 chunk；加 --rerank 走完整链路）
 python scripts/eval_retrieval.py --vector-store lancedb --lancedb-uri data/index_eval/lancedb \
   --bm25-path data/index_eval/bm25.json --queries data/eval/queries_synth.jsonl \
-  --qrels data/eval/qrels_synth.jsonl --backend all --ks 1,4 --embed-backend local --no-strict
+  --qrels data/eval/qrels_synth_chunk.jsonl --backend all --ks 1,4 --embed-backend local --no-strict [--rerank]
 
-# 检索 — 完整链路，加 --rerank（→ data/eval/retrieval_synth_rerank_report.json）
-python scripts/eval_retrieval.py --vector-store lancedb --lancedb-uri data/index_eval/lancedb \
-  --bm25-path data/index_eval/bm25.json --queries data/eval/queries_synth.jsonl \
-  --qrels data/eval/qrels_synth.jsonl --backend all --ks 1,4 --embed-backend local --no-strict --rerank
-
-# 记忆召回（→ data/eval/memory_synth_report.json）
+# 记忆召回
 python scripts/eval_memory.py --facts data/eval/memory_facts_synth.jsonl \
   --queries data/eval/memory_queries_synth.jsonl --qrels data/eval/memory_qrels_synth.jsonl --ks 1,3
 ```
 
 实验结果（合成语料 40 查询，本地 bge-small，LanceDB；FAISS 数字逐位相同）。
-左两列＝无精排基线（`retrieval_synth_report.json`），右两列＝加 `--rerank` 完整链路（`retrieval_synth_rerank_report.json`）：
+左两列＝无精排基线，右两列＝加 `--rerank` 完整链路：
 
 | Backend | 基线 Recall@1 | 基线 MRR@4 | +精排 Recall@1 | +精排 MRR@4 |
 | --- | ---: | ---: | ---: | ---: |
-| 向量 | 0.3125 | 0.5437 | 0.4750 | 0.6792 |
-| BM25 | 0.4500 | 0.6417 | 0.5000 | 0.7042 |
-| **混合** | 0.4000 | 0.6604 | **0.5000** | **0.7042** |
+| 向量 | 0.5125 | 0.6896 | 0.7625 | 0.8792 |
+| BM25 | 0.7375 | 0.8521 | 0.7875 | 0.9042 |
+| **混合** | 0.6000 | 0.8042 | **0.7875** | **0.9042** |
 
-- **`eval_retrieval.py` 默认不精排；加 `--rerank` 才走 BGE 精排。** 上表两组分别对应两份报告文件。
+- **完整链路（混合 + BGE 精排）：Recall@1=0.79 · Recall@4=0.975 · MRR@4=0.90**；混合无精排时 Recall@4=1.00。
+- **`eval_retrieval.py` 默认不精排；加 `--rerank` 才走 BGE 精排。**
+- **qrels 标到 chunk 级**（含答案的 chunk）。若只标到文档级（脚本会塌成 `#0`），会把"召回到正确文档的其它 chunk"误判为错，**低估** MRR/Recall@1（文档级会让混合 MRR@4 从 0.90 假性掉到 0.66）。
 - 完整链路（混合 + BGE 精排）：**Recall@1=0.50 · Recall@4=0.89 · MRR@4=0.70**；精排把 top-1 命中从 0.40 提到 0.50。
 - 记忆召回（`memory_synth_report.json`，31 事实 / 20 查询带干扰，**与 reranker 无关**）：**Recall@1=0.90 · Recall@3=0.95 · MRR@1=0.90**
 
