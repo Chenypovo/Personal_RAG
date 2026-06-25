@@ -14,7 +14,7 @@ def new_id() -> str:
 
 
 VISIBILITY_VALUES = {"PUBLIC", "PRIVATE"}
-STATE_VALUES = {"ACTIVE", "DELETED"}
+STATE_VALUES = {"ACTIVE", "DELETED", "SUPERSEDED"}
 
 
 @dataclass

@@ -151,6 +151,31 @@ class MemoryStore:
         self.vector_index.remove(fact_id)
         return True
 
+    def similarity(self, text_a: str, text_b: str) -> float:
+        """Cosine similarity of two texts under the configured embedder."""
+        import numpy as np
+
+        a = np.asarray(self.embed_fn(text_a or " "), dtype="float32")
+        b = np.asarray(self.embed_fn(text_b or " "), dtype="float32")
+        na, nb = float(np.linalg.norm(a)), float(np.linalg.norm(b))
+        if na == 0.0 or nb == 0.0:
+            return 0.0
+        return float(np.dot(a, b) / (na * nb))
+
+    def supersede(self, old_id: str, new_fact: MemoryFact) -> MemoryFact:
+        """Non-destructive update: mark the old fact SUPERSEDED (kept for audit /
+        recovery, dropped from recall) and add the new fact as ACTIVE."""
+        old = self.get(old_id)
+        if old is not None and old.state == "ACTIVE":
+            with self._lock:
+                self._conn.execute(
+                    "UPDATE memory_facts SET state = 'SUPERSEDED', updated_at = ? WHERE id = ?",
+                    (now_iso(), old_id),
+                )
+                self._conn.commit()
+            self.vector_index.remove(old_id)
+        return self.add(new_fact)
+
     def list_active(self) -> List[MemoryFact]:
         with self._lock:
             cur = self._conn.execute(

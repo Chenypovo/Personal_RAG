@@ -27,6 +27,44 @@ def const_complete(canned: str):
     return _complete
 
 
+def test_update_supersedes_old_fact_non_destructively(tmp_path):
+    store = make_store(tmp_path)
+    old = store.add(MemoryFact(fact_content="learning guitar python", fact_object="skill"))
+    # LLM updates with a clearly-similar refinement (same vocab -> cosine 1.0)
+    merger = MemoryMerger(
+        store=store,
+        complete_fn=const_complete(
+            '{"operations":[{"type":"update","id":"%s","fact_content":"now advanced at guitar python"}]}' % old.id
+        ),
+    )
+    merger.merge([ExtractedFact(fact_content="now advanced at guitar python", fact_object="skill")])
+
+    assert store.get(old.id).state == "SUPERSEDED"           # old kept, not overwritten
+    active = store.list_active()
+    assert len(active) == 1 and "advanced" in active[0].fact_content
+
+
+def test_dissimilar_update_downgrades_to_add_no_data_loss(tmp_path):
+    # The "我喜欢 Claude" vs "我试了 Cursor" case: recalled as loosely related, but the
+    # LLM over-eagerly says UPDATE. The similarity gate must refuse and ADD instead.
+    store = make_store(tmp_path)
+    old = store.add(MemoryFact(fact_content="learning guitar python"))  # [guitar,python]
+    merger = MemoryMerger(
+        store=store,
+        complete_fn=const_complete(
+            '{"operations":[{"type":"update","id":"%s","fact_content":"started guitar gym"}]}' % old.id
+        ),
+    )
+    # "guitar gym" vs "guitar python": cosine 0.5 -> recalled but below the 0.8 gate
+    ops = merger.merge([ExtractedFact(fact_content="started guitar gym")])
+
+    assert store.get(old.id).state == "ACTIVE"               # old fact untouched -> no data loss
+    assert store.get(old.id).fact_content == "learning guitar python"
+    contents = {f.fact_content for f in store.list_active()}
+    assert contents == {"learning guitar python", "started guitar gym"}
+    assert any(o.type == "add" for o in ops)                 # update downgraded to add
+
+
 def test_empty_new_facts_no_llm_call(tmp_path):
     called = {"n": 0}
 
@@ -66,7 +104,10 @@ def test_update_operation_modifies_existing(tmp_path):
     )
     ops = merger.merge([ExtractedFact(fact_content="now plays guitar in a band", fact_object="guitar")])
 
-    assert store.get(existing.id).fact_content == "plays guitar in a band"
+    # update is non-destructive: old superseded, new content is the active memory
+    assert store.get(existing.id).state == "SUPERSEDED"
+    active = store.list_active()
+    assert len(active) == 1 and active[0].fact_content == "plays guitar in a band"
     assert ops[0].type == "update" and ops[0].applied
 
 

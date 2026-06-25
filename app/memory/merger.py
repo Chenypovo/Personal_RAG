@@ -51,10 +51,20 @@ def _normalize_visibility(value, default: str = "PUBLIC") -> str:
 
 
 class MemoryMerger:
-    def __init__(self, store: MemoryStore, complete_fn: CompleteFn, recall_k: int = 5) -> None:
+    def __init__(
+        self,
+        store: MemoryStore,
+        complete_fn: CompleteFn,
+        recall_k: int = 5,
+        merge_min_similarity: float = 0.8,
+    ) -> None:
         self.store = store
         self.complete_fn = complete_fn
         self.recall_k = recall_k
+        # an UPDATE/DELETE is only trusted when the new fact is at least this similar
+        # to the targeted existing fact; otherwise it is downgraded to ADD so a wrong
+        # LLM merge can't silently overwrite an unrelated memory.
+        self.merge_min_similarity = merge_min_similarity
 
     def _recall_existing(self, new_facts: List[ExtractedFact]) -> List[MemoryFact]:
         seen: Dict[str, MemoryFact] = {}
@@ -113,7 +123,7 @@ class MemoryMerger:
             # conservative fallback: never lose newly extracted info
             return self._add_all(new_facts, source)
 
-        existing_ids = {f.id for f in existing}
+        existing_by_id = {f.id: f for f in existing}
         applied_ops: List[MergeOp] = []
         for op in operations:
             if not isinstance(op, dict):
@@ -126,20 +136,38 @@ class MemoryMerger:
 
             record = MergeOp(type=op_type, fact_content=content, fact_object=obj, visibility=vis, id=op_id)
 
-            if op_type == "add" and content:
+            def _add() -> None:
                 self.store.add(MemoryFact(fact_content=content, fact_object=obj, visibility=vis, source=source))
+
+            def _gate_ok(old: MemoryFact) -> bool:
+                # no content to compare -> trust the LLM's explicit op
+                if not content:
+                    return True
+                return self.store.similarity(content, old.fact_content) >= self.merge_min_similarity
+
+            if op_type == "add" and content:
+                _add()
                 record.applied = True
-            elif op_type == "update" and op_id in existing_ids:
-                self.store.update(
-                    op_id,
-                    fact_content=content or None,
-                    fact_object=obj or None,
-                    visibility=vis,
-                )
-                record.applied = True
-            elif op_type == "delete" and op_id in existing_ids:
-                self.store.soft_delete(op_id)
-                record.applied = True
+            elif op_type == "update" and op_id in existing_by_id and content:
+                if _gate_ok(existing_by_id[op_id]):
+                    # non-destructive: supersede the old fact, write the new one
+                    self.store.supersede(
+                        op_id,
+                        MemoryFact(fact_content=content, fact_object=obj, visibility=vis, source=source),
+                    )
+                    record.applied = True
+                else:
+                    _add()  # too dissimilar to be the same fact -> keep both
+                    record.type = "add"
+                    record.applied = True
+            elif op_type == "delete" and op_id in existing_by_id:
+                if _gate_ok(existing_by_id[op_id]):
+                    self.store.soft_delete(op_id)
+                    record.applied = True
+                elif content:
+                    _add()  # untrusted delete: keep the old fact, store the new info
+                    record.type = "add"
+                    record.applied = True
 
             applied_ops.append(record)
 
