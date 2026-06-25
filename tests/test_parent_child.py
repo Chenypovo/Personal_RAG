@@ -69,3 +69,24 @@ def test_parent_id_falls_back_to_window_without_heading():
     assign_parent_ids(chunks, window=2)
     assert chunks[0]["parent_id"] == chunks[1]["parent_id"] == "t.txt#p0"
     assert chunks[2]["parent_id"] == chunks[3]["parent_id"] == "t.txt#p1"
+
+
+SECTION = [chunk("a.md", i, "a.md::S", f"t{i}") for i in range(6)]  # one big section, 6 chunks
+
+
+def test_section_parent_capped_and_centered_on_hit():
+    out = expand_to_parents([hit(SECTION[3])], SECTION, max_parent_chunks=3)
+    assert out[0]["metadata"]["child_chunk_ids"] == [2, 3, 4]  # centered on hit cid=3
+    txt = out[0]["metadata"]["text"]
+    assert "t2" in txt and "t3" in txt and "t4" in txt
+    assert "t0" not in txt and "t5" not in txt
+
+
+def test_section_parent_cap_clamps_at_edge():
+    out = expand_to_parents([hit(SECTION[0])], SECTION, max_parent_chunks=3)
+    assert out[0]["metadata"]["child_chunk_ids"] == [0, 1, 2]
+
+
+def test_no_cap_returns_whole_parent():
+    out = expand_to_parents([hit(SECTION[3])], SECTION)
+    assert out[0]["metadata"]["child_chunk_ids"] == [0, 1, 2, 3, 4, 5]

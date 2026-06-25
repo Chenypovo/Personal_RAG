@@ -42,9 +42,11 @@ def _build_doc_retriever(
     bm25_k: int,
     rrf_k: int,
     use_parent_child: bool = True,
+    max_parent_chunks: int = 6,
 ):
     """Hybrid (vector + BM25 + RRF) document retrieval, optionally reranked, then
-    expanded to parent sections — with a graceful no-docs fallback."""
+    expanded to parent sections (capped to max_parent_chunks) — with a graceful
+    no-docs fallback."""
     from app.vectordb import doc_store_exists, load_doc_store
 
     if not doc_store_exists(
@@ -101,7 +103,7 @@ def _build_doc_retriever(
             # small-to-big: expand the precise child hits to their parent section
             from app.retriever.parent_child import expand_to_parents
 
-            items = expand_to_parents(items, all_chunks)
+            items = expand_to_parents(items, all_chunks, max_parent_chunks=max_parent_chunks)
         return items
 
     return retrieve
@@ -125,6 +127,7 @@ def build_memory_agent(
     bm25_k: int = 20,
     rrf_k: int = 60,
     use_parent_child: bool = True,
+    max_parent_chunks: int = 6,
 ) -> AgentBundle:
     """Wire a real MemoryAgent from configured models, with persistent memory."""
     embed_fn = make_embed_fn()
@@ -154,7 +157,7 @@ def build_memory_agent(
     retrieve = _build_doc_retriever(
         vector_store, index_path, meta_path, lancedb_uri, lancedb_table, bm25_path, embed_fn,
         top_k, max_distance, use_rerank, rerank_model, rerank_candidates,
-        vector_k, bm25_k, rrf_k, use_parent_child,
+        vector_k, bm25_k, rrf_k, use_parent_child, max_parent_chunks,
     )
 
     agent = MemoryAgent(

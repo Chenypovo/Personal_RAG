@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 def assign_parent_ids(chunks: List[Dict[str, Any]], window: int = 3) -> None:
@@ -30,16 +30,40 @@ def _parent_key(meta: Dict[str, Any]) -> str:
     return f"{meta.get('source', 'unknown')}#c{meta.get('chunk_id')}"
 
 
+def _cap_around_hit(
+    children: List[Dict[str, Any]], hit_meta: Dict[str, Any], max_parent_chunks: int
+) -> List[Dict[str, Any]]:
+    """Keep at most ``max_parent_chunks`` sibling chunks, centered on the hit child.
+
+    Without this a large section (heading-based parent) has no size bound and can
+    blow up the LLM context; the cap keeps the precise hit plus its closest
+    neighbours up to the budget.
+    """
+    if max_parent_chunks <= 0 or len(children) <= max_parent_chunks:
+        return children
+    ids = [c.get("chunk_id") for c in children]
+    try:
+        idx = ids.index(hit_meta.get("chunk_id"))
+    except ValueError:
+        idx = len(children) // 2
+    half = max_parent_chunks // 2
+    start = max(0, idx - half)
+    end = min(len(children), start + max_parent_chunks)
+    start = max(0, end - max_parent_chunks)
+    return children[start:end]
+
+
 def expand_to_parents(
     hits: List[Dict[str, Any]],
     all_chunks: List[Dict[str, Any]],
     text_joiner: str = "\n\n",
+    max_parent_chunks: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """Parent-child (small-to-big) retrieval: expand each retrieved child chunk to
-    its full parent block (all sibling chunks sharing ``parent_id``), concatenated
-    in chunk order. Parents are deduplicated, so a parent appears once even when
-    several of its children are retrieved, and the original hit ranking order is
-    preserved. The hit's score/distance fields are carried through unchanged.
+    its parent block (sibling chunks sharing ``parent_id``), concatenated in chunk
+    order. ``max_parent_chunks`` caps the block centered on the hit (so large
+    heading sections don't blow up the context). Parents are deduplicated and the
+    original hit ranking order and score/distance fields are preserved.
     """
     by_parent: Dict[str, List[Dict[str, Any]]] = {}
     for c in all_chunks:
@@ -58,6 +82,8 @@ def expand_to_parents(
         seen.add(pkey)
 
         children = by_parent.get(pkey, [meta])
+        if max_parent_chunks is not None:
+            children = _cap_around_hit(children, meta, max_parent_chunks)
         text = text_joiner.join(
             str(c.get("text", "")).strip() for c in children if str(c.get("text", "")).strip()
         )

@@ -210,6 +210,7 @@ def main() -> None:
     parser.add_argument("--rerank-device", type=str, default="")
     parser.add_argument("--rerank-batch-size", type=int, default=16)
     parser.add_argument("--parent-child", action="store_true", help="Expand each child hit to its parent section (small-to-big)")
+    parser.add_argument("--parent-max-chunks", type=int, default=6, help="Cap parent block size (chunks) centered on the hit; 0 = no cap")
 
     args = parser.parse_args()
 
@@ -260,7 +261,8 @@ def main() -> None:
             lancedb_uri=args.lancedb_uri,
             lancedb_table=args.lancedb_table,
         ).all_metadatas()
-        retrieved = expand_to_parents(retrieved, all_chunks)
+        cap = args.parent_max_chunks if args.parent_max_chunks and args.parent_max_chunks > 0 else None
+        retrieved = expand_to_parents(retrieved, all_chunks, max_parent_chunks=cap)
 
     generator = OpenAICompatibleGenerator()
     result = generator.generate(query=query_text, retrieved_chunks=retrieved)
