@@ -75,6 +75,19 @@ python scripts/eval_memory.py --facts data/eval/memory_facts_synth.jsonl \
 - **完整链路（混合 + BGE 精排）：Recall@1=0.79 · Recall@4=0.975 · MRR@4=0.90**；混合无精排时 Recall@4=1.00。
 - **`eval_retrieval.py` 默认不精排；加 `--rerank` 才走 BGE 精排。**
 - **qrels 标到 chunk 级**（含答案的 chunk）。若只标到文档级（脚本会塌成 `#0`），会把"召回到正确文档的其它 chunk"误判为错，**低估** MRR/Recall@1（文档级会让混合 MRR@4 从 0.90 假性掉到 0.66）。
+
+### parent-child 父块窗口消融（`scripts/eval_parent_window.py`）
+
+heading-less 细粒度语料（104 chunk），命中后扩展到 W 个连续子块的父块，测**答案覆盖率**与**上下文 token**：
+
+| W | 覆盖率(top-4) | 上下文 tokens | 说明 |
+| ---: | ---: | ---: | --- |
+| 1（child-only） | 0.900 | 349 | 基线 |
+| 2 | 0.900 | 612 | 零增益、翻倍 token |
+| **3** | **0.975** | 891 | 覆盖率拐点 |
+| 5 | 0.975 | 1143 | 不再涨、纯增成本 |
+
+结论：**W=3 是覆盖率/成本的拐点**（W=2 无增益、W=5 仅增 token），故无标题文档默认窗口取 3；有标题文档则按章节边界分组。
 - 完整链路（混合 + BGE 精排）：**Recall@1=0.50 · Recall@4=0.89 · MRR@4=0.70**；精排把 top-1 命中从 0.40 提到 0.50。
 - 记忆召回（`memory_synth_report.json`，31 事实 / 20 查询带干扰，**与 reranker 无关**）：**Recall@1=0.90 · Recall@3=0.95 · MRR@1=0.90**
 
