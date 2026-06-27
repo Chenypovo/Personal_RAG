@@ -12,7 +12,7 @@
 - **混合检索**：向量 + BM25 经 RRF 融合 → BGE Reranker 精排
 - **parent-child 召回**：索引小子块保精度，命中后按**标题章节**扩展回父块（无标题则相邻窗口），父块去重
 - **受控生成**：证据约束回答、按 source/chunk 展示依据，证据不足时拒答
-- **长期记忆**：从对话抽取事实三元组 → LLM 判定 add/update/delete 归并 → SQLite（事实）+ 独立向量索引（embedding）持久化；提问时按 embedding cosine 召回注入。**防误判**：update/delete 仅在新旧事实 cosine ≥ 阈值时生效、否则降级 add，update 走非销毁式 supersede（旧事实置 SUPERSEDED 可恢复）
+- **长期记忆**：从对话抽取事实三元组 → LLM 判定 add/update/delete 归并 → SQLite（事实）+ 独立向量索引（embedding）持久化；提问时按 embedding cosine 召回注入。**防误判（规则化判定）**：UPDATE 需**同槽位**（fact_object 一致）+ cosine ≥ 0.8 → 非销毁 supersede（旧置 SUPERSEDED 可恢复），否则降级 ADD；DELETE 更危险——需**矛盾证据**（带 content）+ 同槽位 + 更高门槛 0.9，否则保留旧事实。把 add/update 做成确定性判定，只把"矛盾型删除"留给 LLM
 - **对话 Agent**：路由决策 + 记忆增强生成
 - **Web**：FastAPI 后端 + 自研前端（`webui/`），另提供 Streamlit
 - **评测**：检索 & 记忆的 `Recall@K` / `MRR@K`

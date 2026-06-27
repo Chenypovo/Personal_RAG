@@ -111,18 +111,50 @@ def test_update_operation_modifies_existing(tmp_path):
     assert ops[0].type == "update" and ops[0].applied
 
 
-def test_delete_operation_soft_deletes(tmp_path):
+def test_delete_with_contradiction_evidence_soft_deletes(tmp_path):
     store = make_store(tmp_path)
     existing = store.add(MemoryFact(fact_content="learning guitar", fact_object="guitar"))
+    # delete carries contradicting content in the same slot (cosine 1.0 >= delete gate)
+    merger = MemoryMerger(
+        store=store,
+        complete_fn=const_complete(
+            '{"operations": [{"type": "delete", "id": "%s", "fact_object": "guitar", "fact_content": "no longer learning guitar"}]}' % existing.id
+        ),
+    )
+    ops = merger.merge([ExtractedFact(fact_content="no longer learning guitar", fact_object="guitar")])
 
+    assert store.get(existing.id).state == "DELETED"
+    assert ops[0].type == "delete" and ops[0].applied
+
+
+def test_bare_delete_without_evidence_is_not_applied(tmp_path):
+    store = make_store(tmp_path)
+    existing = store.add(MemoryFact(fact_content="learning guitar", fact_object="guitar"))
     merger = MemoryMerger(
         store=store,
         complete_fn=const_complete('{"operations": [{"type": "delete", "id": "%s"}]}' % existing.id),
     )
-    ops = merger.merge([ExtractedFact(fact_content="quit guitar", fact_object="guitar")])
+    merger.merge([ExtractedFact(fact_content="learning guitar", fact_object="guitar")])
 
-    assert store.get(existing.id).state == "DELETED"
-    assert ops[0].type == "delete" and ops[0].applied
+    # no contradiction evidence -> destructive delete refused, fact stays
+    assert store.get(existing.id).state == "ACTIVE"
+
+
+def test_update_different_slot_downgrades_to_add(tmp_path):
+    store = make_store(tmp_path)
+    old = store.add(MemoryFact(fact_content="guitar python", fact_object="school"))
+    # same text (cosine 1.0) but a DIFFERENT fact_object -> not the same slot -> ADD
+    merger = MemoryMerger(
+        store=store,
+        complete_fn=const_complete(
+            '{"operations": [{"type": "update", "id": "%s", "fact_object": "preference", "fact_content": "guitar python"}]}' % old.id
+        ),
+    )
+    ops = merger.merge([ExtractedFact(fact_content="guitar python", fact_object="preference")])
+
+    assert store.get(old.id).state == "ACTIVE"  # old slot untouched
+    assert len(store.list_active()) == 2
+    assert any(o.type == "add" for o in ops)
 
 
 def test_parse_failure_falls_back_to_add_all(tmp_path):

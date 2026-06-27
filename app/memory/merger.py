@@ -56,15 +56,17 @@ class MemoryMerger:
         store: MemoryStore,
         complete_fn: CompleteFn,
         recall_k: int = 5,
-        merge_min_similarity: float = 0.8,
+        update_min_similarity: float = 0.8,
+        delete_min_similarity: float = 0.9,
     ) -> None:
         self.store = store
         self.complete_fn = complete_fn
         self.recall_k = recall_k
-        # an UPDATE/DELETE is only trusted when the new fact is at least this similar
-        # to the targeted existing fact; otherwise it is downgraded to ADD so a wrong
-        # LLM merge can't silently overwrite an unrelated memory.
-        self.merge_min_similarity = merge_min_similarity
+        # UPDATE = same slot (fact_object) + high similarity -> supersede; otherwise ADD.
+        # DELETE is more dangerous, so it needs contradiction evidence (content) and a
+        # higher similarity bar; else the new info is kept (ADD) instead of destroying.
+        self.update_min_similarity = update_min_similarity
+        self.delete_min_similarity = delete_min_similarity
 
     def _recall_existing(self, new_facts: List[ExtractedFact]) -> List[MemoryFact]:
         seen: Dict[str, MemoryFact] = {}
@@ -139,35 +141,40 @@ class MemoryMerger:
             def _add() -> None:
                 self.store.add(MemoryFact(fact_content=content, fact_object=obj, visibility=vis, source=source))
 
-            def _gate_ok(old: MemoryFact) -> bool:
-                # no content to compare -> trust the LLM's explicit op
-                if not content:
-                    return True
-                return self.store.similarity(content, old.fact_content) >= self.merge_min_similarity
+            def _same_slot(old: MemoryFact) -> bool:
+                # a different non-empty fact_object means a different attribute/slot,
+                # so the new fact cannot be an update/delete of the old one
+                return not (obj and old.fact_object and obj != old.fact_object)
+
+            def _sim(old: MemoryFact) -> float:
+                return self.store.similarity(content, old.fact_content) if content else 0.0
 
             if op_type == "add" and content:
                 _add()
                 record.applied = True
             elif op_type == "update" and op_id in existing_by_id and content:
-                if _gate_ok(existing_by_id[op_id]):
-                    # non-destructive: supersede the old fact, write the new one
+                old = existing_by_id[op_id]
+                if _same_slot(old) and _sim(old) >= self.update_min_similarity:
+                    # same slot, new value -> non-destructive supersede
                     self.store.supersede(
                         op_id,
                         MemoryFact(fact_content=content, fact_object=obj, visibility=vis, source=source),
                     )
                     record.applied = True
                 else:
-                    _add()  # too dissimilar to be the same fact -> keep both
+                    _add()  # different slot or too dissimilar -> keep both
                     record.type = "add"
                     record.applied = True
             elif op_type == "delete" and op_id in existing_by_id:
-                if _gate_ok(existing_by_id[op_id]):
-                    self.store.soft_delete(op_id)
+                old = existing_by_id[op_id]
+                if content and _same_slot(old) and _sim(old) >= self.delete_min_similarity:
+                    self.store.soft_delete(op_id)  # explicit contradiction in the same slot
                     record.applied = True
                 elif content:
                     _add()  # untrusted delete: keep the old fact, store the new info
                     record.type = "add"
                     record.applied = True
+                # bare delete (no contradiction evidence) -> refused, fact kept
 
             applied_ops.append(record)
 
