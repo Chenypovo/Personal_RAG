@@ -6,7 +6,12 @@ from typing import Any, Dict, List
 
 from app.agent.agent import MemoryAgent
 from app.agent.llm import make_complete_fn, make_embed_fn
+from app.agent.loop import ToolAgent
+from app.agent.registry import ToolRegistry
 from app.agent.router import Router
+from app.agent.tools.calculator import CalculatorTool
+from app.agent.tools.memory_tools import ReadMemoryTool, WriteMemoryTool
+from app.agent.tools.retrieve import RetrieveDocsTool
 from app.generator.generator import OpenAICompatibleGenerator
 from app.memory.extractor import MemoryExtractor
 from app.memory.merger import MemoryMerger
@@ -17,6 +22,17 @@ from app.memory.vector_index import NumpyVectorIndex
 @dataclass
 class AgentBundle:
     agent: MemoryAgent
+    store: MemoryStore
+    vector_index: NumpyVectorIndex
+    index_path: str
+
+    def save(self) -> None:
+        self.vector_index.save(self.index_path)
+
+
+@dataclass
+class ToolAgentBundle:
+    agent: ToolAgent
     store: MemoryStore
     vector_index: NumpyVectorIndex
     index_path: str
@@ -109,27 +125,36 @@ def _build_doc_retriever(
     return retrieve
 
 
-def build_memory_agent(
-    memory_dir: str = "data/memory",
-    vector_store: str = "lancedb",
-    index_path: str = "data/index/faiss.index",
-    meta_path: str = "data/index/metadatas.json",
-    lancedb_uri: str = "data/index/lancedb",
-    lancedb_table: str = "chunks",
-    bm25_path: str = "data/index/bm25.json",
-    top_k: int = 4,
-    max_distance: float = 0.8,
-    recall_k: int = 5,
-    use_rerank: bool = False,
-    rerank_model: str = "BAAI/bge-reranker-base",
-    rerank_candidates: int = 20,
-    vector_k: int = 20,
-    bm25_k: int = 20,
-    rrf_k: int = 60,
-    use_parent_child: bool = True,
-    max_parent_chunks: int = 6,
-) -> AgentBundle:
-    """Wire a real MemoryAgent from configured models, with persistent memory."""
+@dataclass
+class _Runtime:
+    """build_memory_agent / build_tool_agent 共用的已装配运行时。"""
+    complete_fn: Any
+    store: MemoryStore
+    vector_index: NumpyVectorIndex
+    index_json: str
+    generate_fn: Any
+    retrieve: Any
+
+
+def _build_runtime(
+    memory_dir: str,
+    vector_store: str,
+    index_path: str,
+    meta_path: str,
+    lancedb_uri: str,
+    lancedb_table: str,
+    bm25_path: str,
+    top_k: int,
+    max_distance: float,
+    use_rerank: bool,
+    rerank_model: str,
+    rerank_candidates: int,
+    vector_k: int,
+    bm25_k: int,
+    rrf_k: int,
+    use_parent_child: bool,
+    max_parent_chunks: int,
+) -> _Runtime:
     embed_fn = make_embed_fn()
     complete_fn = make_complete_fn()
     dim = len(embed_fn("dimension probe"))
@@ -160,13 +185,92 @@ def build_memory_agent(
         vector_k, bm25_k, rrf_k, use_parent_child, max_parent_chunks,
     )
 
+    return _Runtime(complete_fn=complete_fn, store=store, vector_index=vector_index,
+                    index_json=index_json, generate_fn=generate_fn, retrieve=retrieve)
+
+
+def build_memory_agent(
+    memory_dir: str = "data/memory",
+    vector_store: str = "lancedb",
+    index_path: str = "data/index/faiss.index",
+    meta_path: str = "data/index/metadatas.json",
+    lancedb_uri: str = "data/index/lancedb",
+    lancedb_table: str = "chunks",
+    bm25_path: str = "data/index/bm25.json",
+    top_k: int = 4,
+    max_distance: float = 0.8,
+    recall_k: int = 5,
+    use_rerank: bool = False,
+    rerank_model: str = "BAAI/bge-reranker-base",
+    rerank_candidates: int = 20,
+    vector_k: int = 20,
+    bm25_k: int = 20,
+    rrf_k: int = 60,
+    use_parent_child: bool = True,
+    max_parent_chunks: int = 6,
+) -> AgentBundle:
+    """Wire a real MemoryAgent from configured models, with persistent memory."""
+    rt = _build_runtime(
+        memory_dir, vector_store, index_path, meta_path, lancedb_uri, lancedb_table, bm25_path,
+        top_k, max_distance, use_rerank, rerank_model, rerank_candidates,
+        vector_k, bm25_k, rrf_k, use_parent_child, max_parent_chunks,
+    )
+
     agent = MemoryAgent(
-        router=Router(complete_fn=complete_fn),
-        store=store,
-        extractor=MemoryExtractor(complete_fn=complete_fn),
-        merger=MemoryMerger(store=store, complete_fn=complete_fn),
-        retrieve_docs_fn=retrieve,
-        generate_fn=generate_fn,
+        router=Router(complete_fn=rt.complete_fn),
+        store=rt.store,
+        extractor=MemoryExtractor(complete_fn=rt.complete_fn),
+        merger=MemoryMerger(store=rt.store, complete_fn=rt.complete_fn),
+        retrieve_docs_fn=rt.retrieve,
+        generate_fn=rt.generate_fn,
         recall_k=recall_k,
     )
-    return AgentBundle(agent=agent, store=store, vector_index=vector_index, index_path=index_json)
+    return AgentBundle(agent=agent, store=rt.store, vector_index=rt.vector_index, index_path=rt.index_json)
+
+
+def build_tool_agent(
+    memory_dir: str = "data/memory",
+    vector_store: str = "lancedb",
+    index_path: str = "data/index/faiss.index",
+    meta_path: str = "data/index/metadatas.json",
+    lancedb_uri: str = "data/index/lancedb",
+    lancedb_table: str = "chunks",
+    bm25_path: str = "data/index/bm25.json",
+    top_k: int = 4,
+    max_distance: float = 0.8,
+    recall_k: int = 5,
+    use_rerank: bool = False,
+    rerank_model: str = "BAAI/bge-reranker-base",
+    rerank_candidates: int = 20,
+    vector_k: int = 20,
+    bm25_k: int = 20,
+    rrf_k: int = 60,
+    use_parent_child: bool = True,
+    max_parent_chunks: int = 6,
+    max_steps: int = 6,
+    max_tool_calls: int = 8,
+) -> ToolAgentBundle:
+    """Wire a real ToolAgent: same runtime as build_memory_agent, tools instead of a router."""
+    rt = _build_runtime(
+        memory_dir, vector_store, index_path, meta_path, lancedb_uri, lancedb_table, bm25_path,
+        top_k, max_distance, use_rerank, rerank_model, rerank_candidates,
+        vector_k, bm25_k, rrf_k, use_parent_child, max_parent_chunks,
+    )
+
+    registry = ToolRegistry()
+    registry.register(RetrieveDocsTool(retrieve_docs_fn=rt.retrieve))
+    registry.register(ReadMemoryTool(store=rt.store, default_k=recall_k))
+    registry.register(WriteMemoryTool(
+        extractor=MemoryExtractor(complete_fn=rt.complete_fn),
+        merger=MemoryMerger(store=rt.store, complete_fn=rt.complete_fn),
+    ))
+    registry.register(CalculatorTool())
+
+    agent = ToolAgent(
+        complete_fn=rt.complete_fn,
+        registry=registry,
+        generate_fn=rt.generate_fn,
+        max_steps=max_steps,
+        max_tool_calls=max_tool_calls,
+    )
+    return ToolAgentBundle(agent=agent, store=rt.store, vector_index=rt.vector_index, index_path=rt.index_json)
